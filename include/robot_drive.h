@@ -8,11 +8,11 @@
 #define Kd 0
 #define pidTau 0.1
 
-#define MAX_FORWARD 6
-#define MAX_TURN 3
+#define MAX_FORWARD 12
+#define MAX_TURN 12
 
 void setupDrive();
-void updateSetpoints(double left, double right);
+void updateSetpoints(double frontleft, double frontright, double backleft, double backright);
 void updatePIDs();
 
 #endif // ROBOT_DRIVE_H

@@ -25,11 +25,11 @@ void setupDrive(){
         motors[i].setup();
 }
 
-void updateSetpoints(double left, double right) {
-    setpoints[0] = left;
-    setpoints[1] = right;
-    setpoints[2] = left;
-    setpoints[3] = right;
+void updateSetpoints(double frontleft, double frontright, double backleft, double backright) {
+    setpoints[0] = -1 * frontleft;
+    setpoints[1] = -1 * frontright;
+    setpoints[2] = backright;
+    setpoints[3] = backleft;
 }
 
 void updatePIDs() {

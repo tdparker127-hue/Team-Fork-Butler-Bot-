@@ -10,7 +10,8 @@
 #define Kd 0
 #define pidTau 0.1
 
-MotorDriver motor(A_DIR1, A_PWM1, 0);
+MotorDriver motor(A_DIR1, A_PWM1, 2);
+
 EncoderVelocity encoder(ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_312_RPM, 0.2);
 PID pid(Kp, Ki, Kd, 0, pidTau, false);
 
@@ -29,7 +30,7 @@ void loop() {
     // Update setpoint at 50Hz
     EVERY_N_MILLIS(20) {
         // Change this to anything you want! For example, setpoint can be a sinusoidal wave.
-        setpoint = 2;
+        setpoint = 0;
     }
 
     //update PID at 200Hz
