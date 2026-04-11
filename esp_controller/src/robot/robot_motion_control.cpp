@@ -4,17 +4,14 @@
 #include "EncoderVelocity.h"
 #include "wireless.h"
 #include "robot_motion_control.h"
-#include "imu.h"
-#include "EulerAngles.h"
 
 // #define UTURN
-#define CIRCLE
-// #define JOYSTICK
+// #define CIRCLE
+#define JOYSTICK
 // #define YOUR_TRAJECTORY
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
-extern EulerAngles eulerAngles;
 
 int state = 0;
 double robotVelocity = 0; // velocity of robot, in m/s
@@ -29,8 +26,8 @@ double prevPhiR = 0;
 // Sets the desired wheel velocities based on desired robot velocity in m/s
 // and k curvature in 1/m representing 1/(radius of curvature)
 void setWheelVelocities(float robotVelocity, float k){
-    double left = (robotVelocity - k * br * robotVelocity) / rr;
-    double right = 2 * robotVelocity / rr  - left;
+    double left = (robotVelocity - k * WHEEL_BASE_R * robotVelocity) / WHEEL_R;
+    double right = 2 * robotVelocity / WHEEL_R  - left;
     updateSetpoints(left, right);
 }
 
@@ -99,59 +96,7 @@ void followTrajectory() {
 
     #ifdef YOUR_TRAJECTORY
     // TODO: Create a state machine to define your custom trajectory!
-      switch (state) {
-        case 0: 
-            // Until robot has achieved an x translation of 1 m:
-            if (robotMessage.theta <= M_PI) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 1/b;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
 
-        case 1:
-            // Until robot has achieved a 180 deg turn in theta:
-            if (robotMessage.theta >= 0) {
-                // Turn in a circle with radius 25 cm 
-                robotVelocity = 0.2;
-                k = -1 / b;
-            } else {
-                state++;
-            }
-            break;
-
-        case 2:
-            // Until robot has achieved an x translation of -1 m:
-            if (robotMessage.theta <= M_PI) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 1/b;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-        case 3:
-         // Until robot has achieved a 180 deg turn in theta:
-            if (robotMessage.theta >= 0) {
-                // Turn in a circle with radius 25 cm 
-                robotVelocity = 0.2;
-                k = -1 /b;
-            } else {
-                state++;
-            }
-            break;
-
-        default: 
-            // If not in any of the states, robot should just stop
-            robotVelocity = 0;
-            k = 0;
-            break;
-        }
-// 
 
 
     setWheelVelocities(robotVelocity, k);
@@ -171,9 +116,9 @@ void updateOdometry() {
     prevPhiR = currPhiR;
 
     // Calculate update in robot's base coordinates
-    float dtheta = rr / (2 * br) * (dPhiR - dPhiL);
-    float dx = rr / 2.0 * (cos(eulerAngles.yaw) * dPhiR + cos(eulerAngles.yaw) * dPhiL);
-    float dy = rr / 2.0 * (sin(eulerAngles.yaw) * dPhiR + sin(eulerAngles.yaw) * dPhiL);
+    float dtheta = WHEEL_R / (2 * WHEEL_BASE_R) * (dPhiR - dPhiL);
+    float dx = WHEEL_R / 2.0 * (cos(robotMessage.theta) * dPhiR + cos(robotMessage.theta) * dPhiL);
+    float dy = WHEEL_R / 2.0 * (sin(robotMessage.theta) * dPhiR + sin(robotMessage.theta) * dPhiL);
 
     // Update robot message 
     robotMessage.millis = millis();
@@ -181,4 +126,3 @@ void updateOdometry() {
     robotMessage.y += dy;
     robotMessage.theta += dtheta;
 }
-

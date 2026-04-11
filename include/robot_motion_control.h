@@ -2,9 +2,9 @@
 #define ROBOT_MOTION_CONTROL_H
 
 // wheel radius in meters
-#define rr 0.06
+#define WHEEL_R 0.06
 // distance from back wheel to center in meters
-#define br 0.2
+#define WHEEL_BASE_R 0.2
 
 void followTrajectory();
 void updateOdometry();
