@@ -25,11 +25,11 @@ void setupDrive(){
         motors[i].setup();
 }
 
-void updateSetpoints(double left, double right) {
-    setpoints[0] = left;
-    setpoints[1] = right;
-    setpoints[2] = left;
-    setpoints[3] = right;
+void updateSetpoints(double FrRgt, double FrLft, double BkLft, double BkRgt) {
+    setpoints[0] = FrRgt; //Front Right
+    setpoints[1] = -FrLft; //Front Left needs negative for encoder sign flip 
+    setpoints[2] = BkLft; //Rear Left
+    setpoints[3] = -BkRgt; //Rear Right needs negative for encoder sign flip
 }
 
 void updatePIDs() {

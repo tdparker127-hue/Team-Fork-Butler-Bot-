@@ -22,13 +22,13 @@ void loop() {
     }
 
     // Send and print robot values at 20Hz
-    EVERY_N_MILLIS(50) {
-        updateOdometry();
+    EVERY_N_MILLIS(300) {
+        //updateOdometry();
         sendRobotData();
 
-        Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n", robotMessage.x, robotMessage.y, robotMessage.theta);
-        // Serial.printf("x: %.2f, y: %.2f, theta: %.2f, joystick1_x: %.2f, joystick1_y: %.2f\n",
-        //             robotMessage.x, robotMessage.y, robotMessage.theta, controllerMessage.joystick1.x, controllerMessage.joystick1.y);
+        // Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n", robotMessage.x, robotMessage.y, robotMessage.theta);
+        Serial.printf("motor1setpoint: %.2f, y: %.2f, theta: %.2f, joystick1_x: %.2f, joystick1_y: %.2f\n",
+                    robotMessage.x, robotMessage.y, robotMessage.theta, controllerMessage.joystick1.x, controllerMessage.joystick1.y);
     }
   
 }
