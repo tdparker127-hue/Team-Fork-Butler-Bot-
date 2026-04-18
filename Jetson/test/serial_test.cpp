@@ -18,8 +18,7 @@ void loop(){
     if(Serial.available() > 0){
         String incoming= Serial.readStringUntil('\n');
         Serial.println("Received: " + incoming);
-        ums3.setPixelColor(UMS3::colorWheel(colorRCV));
-        delay(15);
+        delay(150);
         ums3.setPixelColor(UMS3::colorWheel(0));
         if (incoming == "PING"){
             Serial.println("PONG");

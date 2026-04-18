@@ -17,7 +17,7 @@ void loop() {
   readSwitches();
   // //readRotary();
   sendControllerData(); // Sends ControllerMessage via ESP-NOW to robot
-  sendData();
+  //sendData();
   printData();  // Prints data via serial port
   //delay(20);
 }

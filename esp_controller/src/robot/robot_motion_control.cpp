@@ -25,11 +25,11 @@ double prevPhiR = 0;
 
 // Sets the desired wheel velocities based on desired robot velocity in m/s
 // and k curvature in 1/m representing 1/(radius of curvature)
-void setWheelVelocities(float robotVelocity, float k){
-    double left = (robotVelocity - k * WHEEL_BASE_R * robotVelocity) / WHEEL_R;
-    double right = 2 * robotVelocity / WHEEL_R  - left;
-    updateSetpoints(left, right);
-}
+// void setWheelVelocities(float robotVelocity, float k){
+//     double left = (robotVelocity - k * WHEEL_BASE_R * robotVelocity) / WHEEL_R;
+//     double right = 2 * robotVelocity / WHEEL_R  - left;
+//     updateSetpoints(left, right);
+// }
 
 // Makes robot follow a trajectory
 void followTrajectory() {
@@ -38,8 +38,10 @@ void followTrajectory() {
     if (freshWirelessData) {
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
-        updateSetpoints(forward + turn, forward - turn);
-    }
+        double strafe =abs(controllerMessage.joystick2.x) <0.1 ?0: mapDouble(controllerMessage.joystick2.x, -1,1, -MAX_FORWARD, MAX_FORWARD);//want our strafe to be as fast as our forward basically? 
+         //FrRight, FR left, Bk Left, Bk right
+       updateSetpoints(turn - forward+strafe, forward +turn+strafe, forward - strafe+turn,turn-strafe-forward);
+    } 
     #endif 
 
     #ifdef CIRCLE
@@ -104,25 +106,25 @@ void followTrajectory() {
 
 }
 
-void updateOdometry() {
-    // Take angles from traction (rear) wheels only since they don't slip
-    currPhiL = encoders[2].getPosition();
-    currPhiR = -encoders[3].getPosition();
+// void updateOdometry() {
+//     // Take angles from traction (rear) wheels only since they don't slip
+//     currPhiL = encoders[2].getPosition();
+//     currPhiR = -encoders[3].getPosition();
     
-    // Update wheel angles and angular change
-    double dPhiL = currPhiL - prevPhiL;
-    double dPhiR = currPhiR - prevPhiR;
-    prevPhiL = currPhiL;
-    prevPhiR = currPhiR;
+//     // Update wheel angles and angular change
+//     double dPhiL = currPhiL - prevPhiL;
+//     double dPhiR = currPhiR - prevPhiR;
+//     prevPhiL = currPhiL;
+//     prevPhiR = currPhiR;
 
-    // Calculate update in robot's base coordinates
-    float dtheta = WHEEL_R / (2 * WHEEL_BASE_R) * (dPhiR - dPhiL);
-    float dx = WHEEL_R / 2.0 * (cos(robotMessage.theta) * dPhiR + cos(robotMessage.theta) * dPhiL);
-    float dy = WHEEL_R / 2.0 * (sin(robotMessage.theta) * dPhiR + sin(robotMessage.theta) * dPhiL);
+//     // Calculate update in robot's base coordinates
+//     float dtheta = WHEEL_R / (2 * WHEEL_BASE_R) * (dPhiR - dPhiL);
+//     float dx = WHEEL_R / 2.0 * (cos(robotMessage.theta) * dPhiR + cos(robotMessage.theta) * dPhiL);
+//     float dy = WHEEL_R / 2.0 * (sin(robotMessage.theta) * dPhiR + sin(robotMessage.theta) * dPhiL);
 
-    // Update robot message 
-    robotMessage.millis = millis();
-    robotMessage.x += dx;
-    robotMessage.y += dy;
-    robotMessage.theta += dtheta;
-}
+//     // Update robot message 
+//     robotMessage.millis = millis();
+//     robotMessage.x += dx;
+//     robotMessage.y += dy;
+//     robotMessage.theta += dtheta;
+// }
