@@ -9,7 +9,7 @@ MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 0}, {A_DIR2, A_PWM2, 1},
                                    {B_DIR1, B_PWM1, 2}, {B_DIR2, B_PWM2, 3} };
 
 EncoderVelocity encoders[NUM_MOTORS] = { {ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_312_RPM, 0.2},
-                                         {ENCODER2_A_PIN, ENCODER2_B_PIN, CPR_312_RPM, 0.2},
+                                         {ENCODER2_A_PIN, ENCODER2_B_PIN, CPR_312_RPM, 0.2},//think the motor on the front left is going at different speed
                                          {ENCODER3_A_PIN, ENCODER3_B_PIN, CPR_312_RPM, 0.2}, 
                                          {ENCODER4_A_PIN, ENCODER4_B_PIN, CPR_312_RPM, 0.2} };
 
@@ -25,11 +25,11 @@ void setupDrive(){
         motors[i].setup();
 }
 
-void updateSetpoints(double FrRgt, double FrLft, double BkLft, double BkRgt) {
-    setpoints[0] = FrRgt; //Front Right
-    setpoints[1] = -FrLft; //Front Left needs negative for encoder sign flip 
-    setpoints[2] = BkLft; //Rear Left
-    setpoints[3] = -BkRgt; //Rear Right needs negative for encoder sign flip
+void updateSetpoints(double FrLft, double BkLft, double FrRgt, double BkRgt) {
+    setpoints[0] = FrLft; //Front Left
+    setpoints[1] =-BkLft; //Back left needs negative for encoder sign flip 
+    setpoints[2] = -FrRgt; //Front Right
+    setpoints[3] = BkRgt; //Rear Right needs negative for encoder sign flip
 }
 
 void updatePIDs() {

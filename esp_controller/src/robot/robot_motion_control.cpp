@@ -37,10 +37,10 @@ void followTrajectory() {
     #ifdef JOYSTICK
     if (freshWirelessData) {
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
-        double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
-        double strafe =abs(controllerMessage.joystick2.x) <0.1 ?0: mapDouble(controllerMessage.joystick2.x, -1,1, -MAX_FORWARD, MAX_FORWARD);//want our strafe to be as fast as our forward basically? 
-         //FrRight, FR left, Bk Left, Bk right
-       updateSetpoints(turn - forward+strafe, forward +turn+strafe, forward - strafe+turn,turn-strafe-forward);
+        double strafe = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_FORWARD, MAX_FORWARD);
+        double turn = abs(controllerMessage.joystick2.x) <0.1 ?0: mapDouble(controllerMessage.joystick2.x, -1,1, -MAX_TURN, MAX_TURN);//want our strafe to be as fast as our forward basically? 
+         //Front left, back left, front right, Bk right
+       updateSetpoints(forward+strafe+turn, forward -strafe+turn, forward - strafe-turn,forward+strafe-turn);
     } 
     #endif 
 
