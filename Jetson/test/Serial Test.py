@@ -2,8 +2,8 @@ import serial
 import time
 #checks serial communication for debugging purposes, sends "PING" to ESP32 and waits for response, prints it to console. Make sure to adjust SERIAL_PORT if needed.
 #created a name using symlink to identify the esp board no matter which ports it's plugged into. 
-#SERIAL_PORT = '/dev/Armature' # Adjust this if your ESP32 is on a different port
-SERIAL_PORT = '/dev/Drivetrain' # Symlink to identify ESP32 regardless of port
+#SERIAL_PORT = '/dev/Arm' # Adjust this if your ESP32 is on a different port
+SERIAL_PORT = '/dev/Drive' # Symlink to identify ESP32 regardless of port
 BAUD_RATE = 115200
 
 try:
