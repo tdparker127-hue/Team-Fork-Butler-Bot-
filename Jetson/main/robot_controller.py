@@ -37,10 +37,10 @@ DRIVE_PORT = "/dev/Drive"
 ARM_PORT   = "/dev/Arm"
 BAUD_RATE  = 115200
 
-# ── Kinematic constants (match robot_drive.h) ─────────────────────────────────
-MAX_FORWARD = 8.0   # rad/s
-MAX_TURN    = 5.0   # rad/s
-DEADBAND    = 0.1   # joystick dead-zone (matches abs() < 0.1 in firmware)
+# ── Kinematic constants ───────────────────────────────────────────────────────
+# MAX_FORWARD / MAX_TURN scaling lives on the ESP32 (robot_drive.h).
+# The Jetson only applies a deadband and sends normalized [-1, 1] values.
+DEADBAND    = 0.1   # joystick dead-zone
 
 # ── Arm rate constants ────────────────────────────────────────────────────────
 MAX_LIFT_RATE = 1.5  # rad/s — adjust to taste
@@ -72,25 +72,17 @@ def _trigger_to_rate(raw: float, max_rate: float) -> float:
 
 def compute_drive_command(lx: float, ly: float, rx: float) -> str:
     """
-    Holonomic mecanum mixing.
-    Left stick defines the direction vector the robot moves in:
-      lx (axis 0) = strafe component  (right = +strafe)
-      ly (axis 1) = forward component (up stick = negative axis, inverted below)
-    Right stick X defines yaw:
-      rx (axis 2) = turn  (right = positive turn)
-    Mixing matches updateSetpoints(FrLft, BkLft, FrRgt, BkRgt) in robot_drive.cpp.
+    Send normalized joystick intent to the drive ESP32.
+    The ESP32 owns all mecanum kinematic mixing and velocity scaling.
+      lx  = strafe  component, normalized [-1, 1] (right = +1)
+      ly  = forward component, normalized [-1, 1] (forward = +1, up-stick inverted here)
+      yaw = rotation intent,   normalized [-1, 1] (right = +1)
+    Deadband is applied here so the ESP receives clean zeros.
     """
-    forward = _scale(ly) * (-MAX_FORWARD)   # invert: up stick → positive forward
-    strafe  = _scale(lx) * MAX_FORWARD      # right stick → positive strafe
-    turn    = _scale(rx) * MAX_TURN         # right stick X → yaw
-
-    # Motor sign convention matches updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
-    fl =  turn - forward + strafe
-    bl =  forward + turn + strafe
-    fr =  forward - strafe + turn
-    br =  turn - strafe - forward
-
-    return f"fl:{fl:.3f};bl:{bl:.3f};fr:{fr:.3f};br:{br:.3f};\n"
+    lx_out  =  _scale(lx)
+    ly_out  = -_scale(ly)   # invert: up stick (negative axis) → positive forward
+    yaw_out =  _scale(rx)
+    return f"lx:{lx_out:.3f};ly:{ly_out:.3f};yaw:{yaw_out:.3f};\n"
 
 
 def compute_arm_command(lt_raw: float, rt_raw: float,
@@ -242,14 +234,21 @@ def main() -> None:
             drive_ser.write(drive_cmd.encode())
             arm_ser.write(arm_cmd.encode())
 
-            # Throttle debug prints to ~5 Hz to avoid flooding the console
+            # Throttle debug prints to 5 Hz to avoid flooding the console
             if int(t0 * 5) % 5 == 0:
                 imu_d = get_imu("drive")
                 imu_a = get_imu("arm")
-                print(f"Drive: {drive_cmd.strip()}", end="   ")
-                print(f"Arm: {arm_cmd.strip()}", end="   ")
-                print(f"DriveIMU yaw={imu_d['yaw']:.2f}  ArmIMU yaw={imu_a['yaw']:.2f}",
-                      end="\r")
+                # Parse lx/ly/yaw back out of the command string for display
+                parts = {t.split(":")[0]: float(t.split(":")[1])
+                         for t in drive_cmd.strip().rstrip(";").split(";") if ":" in t}
+                print(
+                    f"lx={parts.get('lx', 0):+.2f}  "
+                    f"ly={parts.get('ly', 0):+.2f}  "
+                    f"yaw={parts.get('yaw', 0):+.2f}  "
+                    f"| arm: {arm_cmd.strip()}  "
+                    f"| DriveIMU yaw={imu_d['yaw']:.2f}  ArmIMU yaw={imu_a['yaw']:.2f}",
+                    end="\r"
+                )
 
             elapsed = time.monotonic() - t0
             sleep_for = loop_period - elapsed
@@ -260,7 +259,7 @@ def main() -> None:
         print("\nShutting down.")
     finally:
         # Zero out motors on exit
-        drive_ser.write(b"fl:0.000;bl:0.000;fr:0.000;br:0.000;\n")
+        drive_ser.write(b"lx:0.000;ly:0.000;yaw:0.000;\n")
         arm_ser.write(b"lift:0.000;grip:0.000;\n")
         time.sleep(0.1)
         drive_ser.close()

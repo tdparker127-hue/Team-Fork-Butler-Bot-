@@ -30,9 +30,9 @@ double prevPhiL = 0;
 double prevPhiR = 0;
 
 // ---------------------------------------------------------------------------
-// Jetson serial path — parse "fl:X;bl:X;fr:X;br:X;\n" and call updateSetpoints
-// Values are wheel velocity setpoints in rad/s.
-// All kinematic computation is done on the Jetson; this just unpacks the packet.
+// Jetson serial path — parse "lx:X;ly:X;yaw:X;\n" and call updateSetpoints.
+// lx/ly/yaw are normalized [-1, 1] values; scaling and mecanum mixing happen
+// here so all hardware-specific constants stay on the ESP.
 // ---------------------------------------------------------------------------
 #ifdef JETSON_SERIAL
 void parseJetsonSerial() {
@@ -42,10 +42,10 @@ void parseJetsonSerial() {
     line.trim();
     if (line.length() == 0) return;
 
-    double fl = 0, bl = 0, fr = 0, br = 0;
-    bool got_fl = false, got_bl = false, got_fr = false, got_br = false;
+    double lx = 0, ly = 0, yaw = 0;
+    bool got_lx = false, got_ly = false, got_yaw = false;
 
-    // Split by ';'
+    // First split: by ';'
     int start = 0;
     while (start < (int)line.length()) {
         int sep = line.indexOf(';', start);
@@ -55,21 +55,30 @@ void parseJetsonSerial() {
         start = sep + 1;
         if (token.length() == 0) continue;
 
-        // Split token by ':'
+        // Second split: by ':'
         int colon = token.indexOf(':');
         if (colon < 0) continue;
 
         String key = token.substring(0, colon);
         double val = token.substring(colon + 1).toDouble();
 
-        if      (key == "fl") { fl = val; got_fl = true; }
-        else if (key == "bl") { bl = val; got_bl = true; }
-        else if (key == "fr") { fr = val; got_fr = true; }
-        else if (key == "br") { br = val; got_br = true; }
+        if      (key == "lx")  { lx  = val; got_lx  = true; }
+        else if (key == "ly")  { ly  = val; got_ly  = true; }
+        else if (key == "yaw") { yaw = val; got_yaw = true; }
     }
 
-    if (got_fl && got_bl && got_fr && got_br) {
-        updateSetpoints(fl, bl, fr, br);
+    if (got_lx && got_ly && got_yaw) {
+        // Scale normalized inputs to motor velocity setpoints (rad/s)
+        double forward = ly  * MAX_FORWARD;
+        double strafe  = lx  * MAX_FORWARD;
+        double turn    = yaw * MAX_TURN;
+
+        // Mecanum mixing — matches original followTrajectory() JOYSTICK mode:
+        // updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
+        updateSetpoints(turn - forward + strafe,
+                        forward + turn + strafe,
+                        forward - strafe + turn,
+                        turn - strafe - forward);
     }
 }
 #endif // JETSON_SERIAL
