@@ -38,7 +38,7 @@ def main():
             
             #axes = [round(joystick.get_axis(i), 2) for i in range(joystick.get_numaxes())]
             #buttons = [joystick.get_button(i) for i in range(joystick.get_numbuttons())]
-            packet = f"{joystickLx},{joystickLy},{joystickRx},{joystickRy}\n"
+            packet = f"{joystickLx},{joystickLy};{joystickRx},{joystickRy}\n"
             ser.write(packet.encode('utf-8'))
             print(f"Left Stick: ({joystickLx}, {joystickLy}) | Right Stick: ({joystickRx}, {joystickRy})", end="\r")
             time.sleep(0.05)

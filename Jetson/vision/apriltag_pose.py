@@ -214,12 +214,14 @@ def main():
     #----------------------------------------------------------------------
     # 3. Initialize Webcam
     #----------------------------------------------------------------------
-    cap = cv2.VideoCapture(52)  # adjust index as needed
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT,  720)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-    cap.set(cv2.CAP_PROP_FOCUS, 0)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+    # Force V4L2 backend and use the correct device path
+    cap = cv2.VideoCapture("/dev/video4", cv2.CAP_V4L2)
+
+    # Set YUYV — this is the ONLY format available on the color stream
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', 'U', 'Y', 'V'))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FPS, 15)  # max for 1280x720
 
     if not cap.isOpened():
         print("Error: Could not open webcam.")
