@@ -73,8 +73,8 @@ AXIS_LT = 4   # Left trigger  → grip close (rest=-1, full=+1)
 AXIS_RT = 5   # Right trigger → grip open  (rest=-1, full=+1)
 # NOTE: On some Xbox One BT configurations, LT=axis 2 and RX=axis 3.
 # If drive yaw is wrong, try swapping AXIS_RX=3 and AXIS_LT=2.
-BTN_LB  = 4   # Left bumper   → lift down
-BTN_RB  = 5   # Right bumper  → lift up
+BTN_LB  = 6   # Left bumper   → lift down
+BTN_RB  = 7   # Right bumper  → lift up
 # NOTE: If the Y face button (standard index 3) is triggering lift instead
 # of the bumper, try BTN_LB=3 / BTN_RB=4.
 
