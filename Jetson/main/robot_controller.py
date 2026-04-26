@@ -2,7 +2,7 @@
 robot_controller.py
 Jetson Nano — main control loop
 
-Receives Xbox controller input over Bluetooth (via pygame) and sends
+Receives Xbox One controller input over Bluetooth (via pygame) and sends
 command strings over USB serial to two ESP32s:
 
   /dev/Drive  →  "fl:X;bl:X;fr:X;br:X;\n"   (wheel velocity setpoints, rad/s)
@@ -11,17 +11,20 @@ command strings over USB serial to two ESP32s:
 Receives IMU telemetry back from both ESPs (lines starting with "IMU:").
 All higher-level kinematics live here; the ESPs are pure actuator nodes.
 
-Kinematic model mirrors robot_motion_control.cpp / followTrajectory():
-  - Left stick Y  → forward  (±MAX_FORWARD rad/s)
-  - Left stick X  → turn     (±MAX_TURN rad/s)
-  - Right stick X → strafe   (±MAX_FORWARD rad/s)
-  - Mecanum wheel mixing identical to updateSetpoints() in robot_drive.cpp
+Xbox One BT axis/button layout (pygame on Linux):
+  Axes:    0=LX  1=LY  2=RX  3=RY  4=LT(-1→+1)  5=RT(-1→+1)
+  Buttons: 0=A   1=B   2=X   3=Y   4=LB  5=RB  6=Back  7=Start  8=Xbox  9=LS  10=RS
+
+Drive mapping (holonomic vector control):
+  - Left stick  → direction vector the robot moves in (LX=strafe, LY=forward)
+  - Right stick X → yaw rotation (right = turn right, left = turn left)
+  - Mecanum mixing identical to updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
 
 Arm mapping:
-  - Left trigger  (axis 2, 0→1) → positive lift rate
-  - Right trigger (axis 5, 0→1) → negative lift rate
-  - Right bumper  (button 5)    → positive grip rate (open)
-  - Left bumper   (button 4)    → negative grip rate (close)
+  - Left trigger  (axis 4) → lift up   (positive rate)
+  - Right trigger (axis 5) → lift down (negative rate)
+  - RB (button 5)          → gripper open  (positive rate, held)
+  - LB (button 4)          → gripper close (negative rate, held)
 """
 
 import pygame
@@ -43,19 +46,18 @@ DEADBAND    = 0.1   # joystick dead-zone (matches abs() < 0.1 in firmware)
 MAX_LIFT_RATE = 1.5  # rad/s — adjust to taste
 MAX_GRIP_RATE = 1.0  # rad/s
 
-# ── Xbox axis / button indices (pygame, standard mapping) ────────────────────
-AXIS_LX        = 0   # left stick X  (strafe will use this... wait, it's turn)
-AXIS_LY        = 1   # left stick Y  (forward)
-AXIS_RX        = 2   # right stick X (strafe — xbox mapping: RX is axis 2? check below)
-AXIS_RY        = 3   # right stick Y (unused for drive)
-AXIS_LT        = 4   # left trigger  (lift up)
-AXIS_RT        = 5   # right trigger (lift down)
-BTN_LB         = 4   # left bumper   (grip close)
-BTN_RB         = 5   # right bumper  (grip open)
-
-# Note: pygame maps Xbox One BT axes as:
-#   0=LX  1=LY  2=RX  3=RY  4=LT(-1→1)  5=RT(-1→1)
-# Triggers report -1 at rest, +1 at full press → scale to [0,1] below.
+# ── Xbox One BT axis / button indices (pygame on Linux) ─────────────────────
+# Verified against Xbox One controller connected via Bluetooth.
+# If your controller enumerates differently, run pygame's joystick example
+# to print live axis/button indices.
+AXIS_LX = 0   # Left stick X  → strafe
+AXIS_LY = 1   # Left stick Y  → forward (up = negative, we invert below)
+AXIS_RX = 2   # Right stick X → yaw rotation
+AXIS_RY = 3   # Right stick Y → unused
+AXIS_LT = 4   # Left trigger  → lift up   (rest=-1, full=+1)
+AXIS_RT = 5   # Right trigger → lift down (rest=-1, full=+1)
+BTN_LB  = 4   # Left bumper   → grip close
+BTN_RB  = 5   # Right bumper  → grip open
 
 
 def _scale(value: float, deadband: float = DEADBAND) -> float:
@@ -70,13 +72,17 @@ def _trigger_to_rate(raw: float, max_rate: float) -> float:
 
 def compute_drive_command(lx: float, ly: float, rx: float) -> str:
     """
-    Mecanum kinematic mixing (mirrors followTrajectory / updateSetpoints).
-    lx = left stick X (turn), ly = left stick Y (forward), rx = right stick X (strafe)
-    Returns a formatted drive command string.
+    Holonomic mecanum mixing.
+    Left stick defines the direction vector the robot moves in:
+      lx (axis 0) = strafe component  (right = +strafe)
+      ly (axis 1) = forward component (up stick = negative axis, inverted below)
+    Right stick X defines yaw:
+      rx (axis 2) = turn  (right = positive turn)
+    Mixing matches updateSetpoints(FrLft, BkLft, FrRgt, BkRgt) in robot_drive.cpp.
     """
-    forward = _scale(ly) * (-MAX_FORWARD)   # invert Y so up = positive forward
-    turn    = _scale(lx) * MAX_TURN
-    strafe  = _scale(rx) * MAX_FORWARD
+    forward = _scale(ly) * (-MAX_FORWARD)   # invert: up stick → positive forward
+    strafe  = _scale(lx) * MAX_FORWARD      # right stick → positive strafe
+    turn    = _scale(rx) * MAX_TURN         # right stick X → yaw
 
     # Motor sign convention matches updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
     fl =  turn - forward + strafe
@@ -91,17 +97,22 @@ def compute_arm_command(lt_raw: float, rt_raw: float,
                          lb_held: bool, rb_held: bool) -> str:
     """
     Build arm rate command.
-    lift_rate > 0 → arm rises, lift_rate < 0 → arm lowers.
-    grip_rate > 0 → gripper opens, grip_rate < 0 → gripper closes.
+    Lift:  LT held → arm rises (+rate), RT held → arm lowers (-rate).
+           Rates are proportional to trigger depth.
+    Grip:  RB held → gripper increments open  (+MAX_GRIP_RATE)
+           LB held → gripper increments closed (-MAX_GRIP_RATE)
+           Releasing the bumper stops the gripper motor immediately.
+    The Arm ESP32 integrates these rates into clamped position setpoints.
     """
     lift_rate = _trigger_to_rate(lt_raw, MAX_LIFT_RATE) \
               - _trigger_to_rate(rt_raw, MAX_LIFT_RATE)
 
-    grip_rate = 0.0
     if rb_held:
         grip_rate =  MAX_GRIP_RATE
     elif lb_held:
         grip_rate = -MAX_GRIP_RATE
+    else:
+        grip_rate = 0.0
 
     return f"lift:{lift_rate:.3f};grip:{grip_rate:.3f};\n"
 
