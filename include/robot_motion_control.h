@@ -8,5 +8,6 @@
 
 void followTrajectory();
 void updateOdometry();
+void parseJetsonSerial();
 
 #endif
