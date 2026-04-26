@@ -10,7 +10,7 @@
 #define Kd 0
 #define pidTau 0.1
 
-MotorDriver motor(A_DIR1, A_PWM1, 2);
+MotorDriver motor(A_DIR1, A_PWM1, 0);
 
 EncoderVelocity encoder(ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_312_RPM, 0.2);
 PID pid(Kp, Ki, Kd, 0, pidTau, false);
@@ -21,7 +21,7 @@ double controlEffort = 0;
 
 void setup() {
     // Setup code here, such as initializing serial communication or motor drivers
-    Serial.begin();
+    Serial.begin(115200);
 
     motor.setup();
 }
@@ -42,6 +42,6 @@ void loop() {
 
     // Print values at 20Hz
     EVERY_N_MILLIS(50) {
-        Serial.printf("SP: %.2f   VEL: %.2f   CE: %.2f\n", setpoint, velocity, controlEffort);
+        Serial.printf("SP: %.2f   VEL: %.2f   CE: %.2f   POS: %.2f \n", setpoint, velocity, controlEffort, encoder.getPosition());
     }
 }
