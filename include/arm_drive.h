@@ -21,7 +21,7 @@
 
 // ---- Function declarations ----
 void setupArm();
-void updateArmSetpointRates(double liftRate, double gripRate);
+void updateArmSetpoints(double liftPos, double gripPos);
 void updateArmControl();
 double getLiftPosition();
 double getGripPosition();

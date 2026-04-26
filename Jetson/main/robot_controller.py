@@ -21,10 +21,16 @@ Drive mapping (holonomic vector control):
   - Mecanum mixing identical to updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
 
 Arm mapping:
-  - Left trigger  (axis 4) → lift up   (positive rate)
-  - Right trigger (axis 5) → lift down (negative rate)
-  - RB (button 5)          → gripper open  (positive rate, held)
-  - LB (button 4)          → gripper close (negative rate, held)
+  - LB (button 4) held  → lift moves down (fixed rate)
+  - RB (button 5) held  → lift moves up   (fixed rate)
+  - LT (axis 4)  held  → gripper closes  (rate proportional to trigger depth)
+  - RT (axis 5)  held  → gripper opens   (rate proportional to trigger depth)
+
+  NOTE: If the wrong button is triggering lift, check BTN_LB/BTN_RB below.
+  Run `python3 -c "import pygame; pygame.init(); pygame.joystick.init();
+  j=pygame.joystick.Joystick(0); j.init();
+  [print(i, j.get_button(i)) for _ in iter(pygame.event.pump,None)]"` to
+  identify your actual button indices.
 """
 
 import pygame
@@ -42,9 +48,18 @@ BAUD_RATE  = 115200
 # The Jetson only applies a deadband and sends normalized [-1, 1] values.
 DEADBAND    = 0.1   # joystick dead-zone
 
-# ── Arm rate constants ────────────────────────────────────────────────────────
-MAX_LIFT_RATE = 1.5  # rad/s — adjust to taste
-MAX_GRIP_RATE = 1.0  # rad/s
+# ── Arm setpoint limits (radians) ────────────────────────────────────────────
+# These must match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in arm_drive.h.
+# TODO: measure physical end-stops and update both files.
+MIN_LIFT_RAD = -3.0
+MAX_LIFT_RAD =  3.0
+MIN_GRIP_RAD = -2.0
+MAX_GRIP_RAD =  2.0
+
+# ── Arm max speeds ────────────────────────────────────────────────────────────
+# At 50 Hz loop: step_per_loop = speed / 50
+MAX_LIFT_SPEED = 1.0   # rad/s — fixed rate when bumper held
+MAX_GRIP_SPEED = 1.5   # rad/s — at full trigger press (proportional to depth)
 
 # ── Xbox One BT axis / button indices (pygame on Linux) ─────────────────────
 # Verified against Xbox One controller connected via Bluetooth.
@@ -54,20 +69,49 @@ AXIS_LX = 0   # Left stick X  → strafe
 AXIS_LY = 1   # Left stick Y  → forward (up = negative, we invert below)
 AXIS_RX = 2   # Right stick X → yaw rotation
 AXIS_RY = 3   # Right stick Y → unused
-AXIS_LT = 4   # Left trigger  → lift up   (rest=-1, full=+1)
-AXIS_RT = 5   # Right trigger → lift down (rest=-1, full=+1)
-BTN_LB  = 4   # Left bumper   → grip close
-BTN_RB  = 5   # Right bumper  → grip open
+AXIS_LT = 4   # Left trigger  → grip close (rest=-1, full=+1)
+AXIS_RT = 5   # Right trigger → grip open  (rest=-1, full=+1)
+# NOTE: On some Xbox One BT configurations, LT=axis 2 and RX=axis 3.
+# If drive yaw is wrong, try swapping AXIS_RX=3 and AXIS_LT=2.
+BTN_LB  = 4   # Left bumper   → lift down
+BTN_RB  = 5   # Right bumper  → lift up
+# NOTE: If the Y face button (standard index 3) is triggering lift instead
+# of the bumper, try BTN_LB=3 / BTN_RB=4.
 
 
-def _scale(value: float, deadband: float = DEADBAND) -> float:
-    """Apply deadband and return the raw value unchanged otherwise."""
-    return 0.0 if abs(value) < deadband else value
+def _trigger_depth(raw: float) -> float:
+    """Convert trigger axis (rest=-1, full=+1) to depth in [0, 1]."""
+    return max(0.0, (raw + 1.0) / 2.0)
 
 
-def _trigger_to_rate(raw: float, max_rate: float) -> float:
-    """Convert trigger axis (-1 rest, +1 full) to a 0→max_rate value."""
-    return max(0.0, (raw + 1.0) / 2.0) * max_rate
+def step_arm_setpoints(
+    lift_sp: float, grip_sp: float,
+    lt_raw: float, rt_raw: float,
+    lb_held: bool, rb_held: bool,
+    dt: float,
+) -> tuple:
+    """
+    Increment arm position setpoints by one loop step and clamp to limits.
+
+    Lift  — bumpers (digital, fixed speed):
+      RB held → lift rises at MAX_LIFT_SPEED rad/s
+      LB held → lift lowers at MAX_LIFT_SPEED rad/s
+
+    Grip  — triggers (analog, proportional to depth):
+      RT depth → gripper opens  at up to MAX_GRIP_SPEED rad/s
+      LT depth → gripper closes at up to MAX_GRIP_SPEED rad/s
+
+    Returns (new_lift_sp, new_grip_sp).
+    """
+    # Lift: fixed rate, direction from which bumper is held
+    lift_delta = (int(rb_held) - int(lb_held)) * MAX_LIFT_SPEED * dt
+    lift_sp = max(MIN_LIFT_RAD, min(MAX_LIFT_RAD, lift_sp + lift_delta))
+
+    # Grip: proportional — net depth drives the rate
+    grip_delta = (_trigger_depth(rt_raw) - _trigger_depth(lt_raw)) * MAX_GRIP_SPEED * dt
+    grip_sp = max(MIN_GRIP_RAD, min(MAX_GRIP_RAD, grip_sp + grip_delta))
+
+    return lift_sp, grip_sp
 
 
 def compute_drive_command(lx: float, ly: float, rx: float) -> str:
@@ -84,29 +128,9 @@ def compute_drive_command(lx: float, ly: float, rx: float) -> str:
     yaw_out =  _scale(rx)
     return f"lx:{lx_out:.3f};ly:{ly_out:.3f};yaw:{yaw_out:.3f};\n"
 
-
-def compute_arm_command(lt_raw: float, rt_raw: float,
-                         lb_held: bool, rb_held: bool) -> str:
-    """
-    Build arm rate command.
-    Lift:  LT held → arm rises (+rate), RT held → arm lowers (-rate).
-           Rates are proportional to trigger depth.
-    Grip:  RB held → gripper increments open  (+MAX_GRIP_RATE)
-           LB held → gripper increments closed (-MAX_GRIP_RATE)
-           Releasing the bumper stops the gripper motor immediately.
-    The Arm ESP32 integrates these rates into clamped position setpoints.
-    """
-    lift_rate = _trigger_to_rate(lt_raw, MAX_LIFT_RATE) \
-              - _trigger_to_rate(rt_raw, MAX_LIFT_RATE)
-
-    if rb_held:
-        grip_rate =  MAX_GRIP_RATE
-    elif lb_held:
-        grip_rate = -MAX_GRIP_RATE
-    else:
-        grip_rate = 0.0
-
-    return f"lift:{lift_rate:.3f};grip:{grip_rate:.3f};\n"
+def _scale(value: float, deadband: float = DEADBAND) -> float:
+    """Apply deadband and return the raw value unchanged otherwise."""
+    return 0.0 if abs(value) < deadband else value
 
 
 # ── IMU state shared between reader threads and main loop ────────────────────
@@ -212,6 +236,10 @@ def main() -> None:
 
     loop_period = 1.0 / 50.0  # 50 Hz
 
+    # Arm setpoint state — Jetson owns the incremental integration
+    lift_sp = 0.0
+    grip_sp = 0.0
+
     try:
         while True:
             t0 = time.monotonic()
@@ -229,7 +257,12 @@ def main() -> None:
             rb  = bool(joystick.get_button(BTN_RB)) if joystick.get_numbuttons() > BTN_RB else False
 
             drive_cmd = compute_drive_command(lx, ly, rx)
-            arm_cmd   = compute_arm_command(lt, rt, lb, rb)
+
+            # Step arm setpoints by one dt increment then build command string
+            lift_sp, grip_sp = step_arm_setpoints(
+                lift_sp, grip_sp, lt, rt, lb, rb, loop_period
+            )
+            arm_cmd = f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n"
 
             drive_ser.write(drive_cmd.encode())
             arm_ser.write(arm_cmd.encode())
@@ -245,7 +278,7 @@ def main() -> None:
                     f"lx={parts.get('lx', 0):+.2f}  "
                     f"ly={parts.get('ly', 0):+.2f}  "
                     f"yaw={parts.get('yaw', 0):+.2f}  "
-                    f"| arm: {arm_cmd.strip()}  "
+                    f"| lift={lift_sp:+.3f}  grip={grip_sp:+.3f}  "
                     f"| DriveIMU yaw={imu_d['yaw']:.2f}  ArmIMU yaw={imu_a['yaw']:.2f}",
                     end="\r"
                 )
@@ -258,8 +291,9 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nShutting down.")
     finally:
-        # Zero out motors on exit
+        # Zero out drive motors on exit; arm holds its last setpoint (safest for a belt-driven joint)
         drive_ser.write(b"lx:0.000;ly:0.000;yaw:0.000;\n")
+        arm_ser.write(f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n".encode())
         arm_ser.write(b"lift:0.000;grip:0.000;\n")
         time.sleep(0.1)
         drive_ser.close()

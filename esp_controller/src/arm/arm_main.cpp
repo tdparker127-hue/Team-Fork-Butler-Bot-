@@ -8,7 +8,9 @@ IMU imu(ARM_BNO08X_RESET, ARM_BNO08X_CS, ARM_BNO08X_INT);
 
 // ---------------------------------------------------------------------------
 // Parse "lift:X;grip:Y;\n" from the Jetson.
-// X and Y are signed rates in rad/s. Calls updateArmSetpointRates().
+// X and Y are absolute position setpoints in radians.
+// The Jetson owns incremental stepping and soft limits; the ESP clamps as
+// a hardware safety backstop.
 // ---------------------------------------------------------------------------
 static void parseArmSerial() {
     if (!Serial.available()) return;
@@ -17,7 +19,7 @@ static void parseArmSerial() {
     line.trim();
     if (line.length() == 0) return;
 
-    double liftRate = 0.0, gripRate = 0.0;
+    double liftPos = 0.0, gripPos = 0.0;
     bool got_lift = false, got_grip = false;
 
     // First split: by ';'
@@ -37,12 +39,12 @@ static void parseArmSerial() {
         String key = token.substring(0, colon);
         double val  = token.substring(colon + 1).toDouble();
 
-        if      (key == "lift") { liftRate = val; got_lift = true; }
-        else if (key == "grip") { gripRate = val; got_grip = true; }
+        if      (key == "lift") { liftPos = val; got_lift = true; }
+        else if (key == "grip") { gripPos = val; got_grip = true; }
     }
 
     if (got_lift && got_grip) {
-        updateArmSetpointRates(liftRate, gripRate);
+        updateArmSetpoints(liftPos, gripPos);
     }
 }
 

@@ -16,42 +16,26 @@ static EncoderVelocity encoderGrip(GRIP_ENC_A_PIN, GRIP_ENC_B_PIN, CPR_312_RPM, 
 static LeadLagFilter filterLift(ARM_ALPHA, ARM_TD, ARM_TI);
 static LeadLagFilter filterGrip(ARM_ALPHA, ARM_TD, ARM_TI);
 
-// ---- Setpoints accumulated by integrating incoming rate commands ----
-static double liftSetpoint = 0.0;  // rad
-static double gripSetpoint = 0.0;  // rad
-
-// ---- Pending rate commands written by parseArmSerial() ----
-static volatile double liftRate = 0.0;  // rad/s
-static volatile double gripRate = 0.0;  // rad/s
-
-static unsigned long lastRateUpdate = 0;
+// ---- Setpoints commanded by Jetson (absolute positions in radians) ----
+static double liftSetpoint = 0.0;
+static double gripSetpoint = 0.0;
 
 void setupArm() {
     motorLift.setup();
     motorGrip.setup();
-    lastRateUpdate = micros();
 }
 
 // Called by arm_main every serial-receive cycle.
-// Integrates the rate commands into clamped position setpoints.
-void updateArmSetpointRates(double newLiftRate, double newGripRate) {
-    liftRate = newLiftRate;
-    gripRate = newGripRate;
+// Accepts absolute position setpoints (rad) from the Jetson.
+// The Jetson owns the incremental stepping and limit logic;
+// the ESP clamps here as a hardware safety fallback (belt protection).
+void updateArmSetpoints(double newLiftSetpoint, double newGripSetpoint) {
+    liftSetpoint = constrain(newLiftSetpoint, MIN_LIFT_RAD, MAX_LIFT_RAD);
+    gripSetpoint = constrain(newGripSetpoint, MIN_GRIP_RAD, MAX_GRIP_RAD);
 }
 
-// Called at high frequency (2 kHz) to integrate setpoints and run position control.
+// Called at high frequency (2 kHz) to run position control.
 void updateArmControl() {
-    unsigned long now = micros();
-    double dt = (now - lastRateUpdate) * 1e-6;
-    lastRateUpdate = now;
-
-    // Integrate rates into setpoints and apply soft limits
-    liftSetpoint += liftRate * dt;
-    liftSetpoint = constrain(liftSetpoint, MIN_LIFT_RAD, MAX_LIFT_RAD);
-
-    gripSetpoint += gripRate * dt;
-    gripSetpoint = constrain(gripSetpoint, MIN_GRIP_RAD, MAX_GRIP_RAD);
-
     // Position control via LeadLag (proportional + lead/lag compensation)
     double posLift = encoderLift.getPosition();
     double errorLift = liftSetpoint - posLift;
