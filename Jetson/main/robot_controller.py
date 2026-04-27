@@ -58,7 +58,7 @@ MAX_GRIP_RAD =  2.0
 
 # ── Arm max speeds ────────────────────────────────────────────────────────────
 # At 50 Hz loop: step_per_loop = speed / 50
-MAX_LIFT_SPEED = 1.0   # rad/s — fixed rate when bumper held
+MAX_LIFT_SPEED = 0.5   # rad/s — fixed rate when bumper held
 MAX_GRIP_SPEED = 1.5   # rad/s — at full trigger press (proportional to depth)
 
 # ── Xbox One BT axis / button indices (pygame on Linux) ─────────────────────

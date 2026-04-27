@@ -40,9 +40,9 @@ void loop() {
     EVERY_N_MILLIS(50) {
         EulerAngles euler = imu.getEulerAngles();
         GyroReadings gyro  = imu.getGyroReadings();
-        Serial.printf("IMU:roll:%.4f;pitch:%.4f;yaw:%.4f;rollRate:%.4f;pitchRate:%.4f;yawRate:%.4f;\n",
-                      euler.roll, euler.pitch, euler.yaw,
-                      gyro.rollRate, gyro.pitchRate, gyro.yawRate);
+        // Serial.printf("IMU:roll:%.4f;pitch:%.4f;yaw:%.4f;rollRate:%.4f;pitchRate:%.4f;yawRate:%.4f;\n",
+        //               euler.roll, euler.pitch, euler.yaw,
+        //               gyro.rollRate, gyro.pitchRate, gyro.yawRate);
     }
 
 #ifndef JETSON_SERIAL

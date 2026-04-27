@@ -75,10 +75,15 @@ void parseJetsonSerial() {
 
         // Mecanum mixing — matches original followTrajectory() JOYSTICK mode:
         // updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
-        updateSetpoints(turn - forward + strafe,
+        updateSetpoints(forward + turn - strafe,
                         forward + turn + strafe,
-                        forward - strafe + turn,
-                        turn - strafe - forward);
+                        forward - turn - strafe,
+                        forward - turn + strafe);
+
+        // updateSetpoints(turn - forward + strafe,
+        //                 forward + turn + strafe,
+        //                 forward - strafe + turn,
+        //                 turn - strafe - forward);
     }
 }
 #endif // JETSON_SERIAL
