@@ -38,9 +38,9 @@ import serial
 import threading
 import time
 
-# ── Serial ports ─────────────────────────────────────────────────────────────
-DRIVE_PORT = "/dev/Drive"
-ARM_PORT   = "/dev/Arm"
+# ── Serial ports ──────────────────────────────────── ─────────────────────────
+DRIVE_PORT = "/dev/Drive" #Drive serial = xx xx xx xx 86 74
+ARM_PORT   = "/dev/Arm" #arm serial = xx xx xx xx 85 04
 BAUD_RATE  = 115200
 
 # ── Kinematic constants ───────────────────────────────────────────────────────

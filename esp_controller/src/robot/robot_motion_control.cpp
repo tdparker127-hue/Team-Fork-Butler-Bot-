@@ -72,13 +72,13 @@ void parseJetsonSerial() {
         double forward = ly  * MAX_FORWARD;
         double strafe  = lx  * MAX_FORWARD;
         double turn    = yaw * MAX_TURN;
-
+        
         // Mecanum mixing — matches original followTrajectory() JOYSTICK mode:
         // updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
-        updateSetpoints(forward + turn - strafe,
-                        forward + turn + strafe,
-                        forward - turn - strafe,
-                        forward - turn + strafe);
+        updateSetpoints(forward - strafe + turn,
+                        -forward - strafe + turn,
+                        forward + strafe - turn,
+                        -forward + strafe - turn);
 
         // updateSetpoints(turn - forward + strafe,
         //                 forward + turn + strafe,

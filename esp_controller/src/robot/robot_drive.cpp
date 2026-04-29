@@ -26,10 +26,10 @@ void setupDrive(){
 }
 
 void updateSetpoints(double FrLft, double BkLft, double FrRgt, double BkRgt) {
-    setpoints[0] = FrLft; //Front Left
-    setpoints[1] =-BkLft; //Back left needs negative for encoder sign flip 
-    setpoints[2] = -FrRgt; //Front Right
-    setpoints[3] = BkRgt; //Rear Right needs negative for encoder sign flip
+    setpoints[0] = FrLft;   //Front Left(
+    setpoints[1] = BkLft;   //Back left (
+    setpoints[2] = -FrRgt;//Front Right (-
+    setpoints[3] = -BkRgt; //Rear Right (-)
 }
 
 void updatePIDs() {
