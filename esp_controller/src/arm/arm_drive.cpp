@@ -20,9 +20,14 @@ static LeadLagFilter filterGrip(ARM_ALPHA, ARM_TD, ARM_TI);
 static double liftSetpoint = 0.0;
 static double gripSetpoint = 0.0;
 
+// ---- Grip effort output ----
+static double effortGrip = 0.0;
+ 
+
 void setupArm() {
     motorLift.setup();
     motorGrip.setup();
+   
 }
 
 // Called by arm_main every serial-receive cycle.
@@ -31,7 +36,7 @@ void setupArm() {
 // the ESP clamps here as a hardware safety fallback (belt protection).
 void updateArmSetpoints(double newLiftSetpoint, double newGripSetpoint) {
     liftSetpoint = constrain(newLiftSetpoint, MIN_LIFT_RAD, MAX_LIFT_RAD);
-    gripSetpoint = constrain(newGripSetpoint, MIN_GRIP_RAD, MAX_GRIP_RAD);
+    gripSetpoint = constrain(newGripSetpoint, MIN_GRIP_RAD, MAX_GRIP_RAD);   
 }
 
 // Called at high frequency (2 kHz) to run position control.
@@ -39,12 +44,14 @@ void updateArmControl() {
     // Position control via LeadLag (proportional + lead/lag compensation)
     double posLift = encoderLift.getPosition();
     double errorLift = liftSetpoint - posLift;
+    //motorLift.drive(ARM_KP*errorLift); //DEBUG
     double effortLift = ARM_KP * filterLift.calculate(errorLift);
     motorLift.drive(effortLift);
 
     double posGrip = encoderGrip.getPosition();
     double errorGrip = gripSetpoint - posGrip;
-    double effortGrip = ARM_KP * filterGrip.calculate(errorGrip);
+    //motorLift.drive(ARM_KP*errorLift); //DEBUG
+    effortGrip = ARM_KP * filterGrip.calculate(errorGrip);
     motorGrip.drive(effortGrip);
 }
 
@@ -52,3 +59,4 @@ double getLiftPosition() { return encoderLift.getPosition(); }
 double getGripPosition()  { return encoderGrip.getPosition(); }
 double getLiftSetpoint()  { return liftSetpoint; }
 double getGripSetpoint()  { return gripSetpoint; }
+double getGripEffort() {return effortGrip;}
