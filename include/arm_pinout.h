@@ -14,8 +14,8 @@
 #define LIFT_ENC_B_PIN  2
 
 // Encoder for gripper motor
-#define GRIP_ENC_A_PIN  4
-#define GRIP_ENC_B_PIN  5
+#define GRIP_ENC_A_PIN  5 //4
+#define GRIP_ENC_B_PIN  4 //5
 
 // BNO085 IMU (SPI) — TODO: update pins once arm ESP is wired
 #define ARM_BNO08X_CS     12

@@ -176,7 +176,8 @@ def _serial_reader(ser: serial.Serial, label: str) -> None:
                 with _imu_lock:
                     _imu_data[label].update(imu)
             elif line.startswith("DBG:"):
-                pass  # ignore debug telemetry silently
+                #pass  # ignore debug telemetry silently
+                print(f"[{label}] {line}")
             else:
                 print(f"[{label}] {line}")
         except serial.SerialException:

@@ -4,7 +4,8 @@
 #include "imu.h"
 #include "util.h"
 
-IMU imu(ARM_BNO08X_RESET, ARM_BNO08X_CS, ARM_BNO08X_INT);
+/*removed for DEBUG, arm wasn't working when IMU data was included. 2MAY TDP*/
+//IMU imu(ARM_BNO08X_RESET, ARM_BNO08X_CS, ARM_BNO08X_INT);
 
 // ---------------------------------------------------------------------------
 // Parse "lift:X;grip:Y;\n" from the Jetson.
@@ -51,12 +52,12 @@ static void parseArmSerial() {
 void setup() {
     Serial.begin(115200);
     setupArm();
-    imu.setup();
+    //imu.setup();
 }
 
 void loop() {
     // Update IMU readings whenever data is ready
-    imu.update();
+    // imu.update();
 
     // Parse incoming Jetson commands at 50 Hz
     EVERY_N_MILLIS(20) {
@@ -70,18 +71,18 @@ void loop() {
 
     // Send IMU telemetry back to Jetson at 20 Hz
     // Format: "IMU:roll:X;pitch:X;yaw:X;rollRate:X;pitchRate:X;yawRate:X;\n"
-    EVERY_N_MILLIS(50) {
-        EulerAngles euler = imu.getEulerAngles();
-        GyroReadings gyro  = imu.getGyroReadings();
-        Serial.printf("IMU:roll:%.4f;pitch:%.4f;yaw:%.4f;rollRate:%.4f;pitchRate:%.4f;yawRate:%.4f;\n",
-                      euler.roll, euler.pitch, euler.yaw,
-                      gyro.rollRate, gyro.pitchRate, gyro.yawRate);
-    }
+    // EVERY_N_MILLIS(50) {
+    //     EulerAngles euler = imu.getEulerAngles();
+    //     GyroReadings gyro  = imu.getGyroReadings();
+    //     Serial.printf("IMU:roll:%.4f;pitch:%.4f;yaw:%.4f;rollRate:%.4f;pitchRate:%.4f;yawRate:%.4f;\n",
+    //                   euler.roll, euler.pitch, euler.yaw,
+    //                   gyro.rollRate, gyro.pitchRate, gyro.yawRate);
+    // }
 
     // Debug telemetry at 10 Hz (can be removed once tuned)
     EVERY_N_MILLIS(100) {
-        Serial.printf("DBG:lift_sp:%.3f;lift_pos:%.3f;grip_sp:%.3f;grip_pos:%.3f;\n",
+        Serial.printf("DBG:lift_sp:%.3f;lift_pos:%.3f;grip_sp:%.3f;grip_pos:%.3f;grip_effort:%3f;\n",
                       getLiftSetpoint(), getLiftPosition(),
-                      getGripSetpoint(), getGripPosition());
+                      getGripSetpoint(), getGripPosition(), getGripEffort());
     }
 }
