@@ -39,11 +39,11 @@ import threading
 import time
 
 # ── Serial ports ──────────────────────────────────── ─────────────────────────
-DRIVE_PORT = "/dev/Drive" #Drive serial = xx xx xx xx 86 74
-ARM_PORT   = "/dev/Arm" #arm serial = xx xx xx xx 85 04
+DRIVE_PORT = "/dev/ttyACM0"  #Drive serial = xx xx xx xx 86 74
+ARM_PORT   = "/dev/ttyACM1"  #arm serial = xx xx xx xx 85 04
 BAUD_RATE  = 115200
 
-# ── Kinematic constants ───────────────────────────────────────────────────────
+# ── Kinematic constants ─────────`──────────────────────────────────────────────
 # MAX_FORWARD / MAX_TURN scaling lives on the ESP32 (robot_drive.h).
 # The Jetson only applies a deadband and sends normalized [-1, 1] values.
 DEADBAND    = 0.1   # joystick dead-zone
