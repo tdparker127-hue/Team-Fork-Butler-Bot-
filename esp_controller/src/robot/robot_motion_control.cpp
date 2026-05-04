@@ -1,8 +1,10 @@
 #include <Arduino.h>
+#include <math.h>
 #include "util.h"
 #include "robot_drive.h"
 #include "EncoderVelocity.h"
 #include "robot_motion_control.h"
+#include "VL53L5cx_Sensor.h"
 
 // Define JETSON_SERIAL to receive wheel velocity setpoints over USB serial from the Jetson.
 // When undefined, ESP-NOW wireless control (joystick) is used instead.
@@ -72,7 +74,26 @@ void parseJetsonSerial() {
         double forward = ly  * MAX_FORWARD;
         double strafe  = lx  * MAX_FORWARD;
         double turn    = yaw * MAX_TURN;
-        
+
+        // --- Artificial Potential Field: repulsive vector from ToF sensor ---
+        // obstacleReading is updated each time ToFData() fires (called in robot_main loop).
+        // Repulsive force formula: F = K_REP * (1/d - 1/d0) / d^2
+        // Direction: directly away from the obstacle angle.
+        //   Obstacle at angle theta -> unit vec toward it = (sin(theta), cos(theta))
+        //   Repulsion                                     = -(sin(theta), cos(theta)) * F
+        if (obstacleReading.valid) {
+            float d   = obstacleReading.distance_m;
+            float d0  = TOF_REP_RADIUS_MM / 1000.0f;
+            float mag = K_REP * (1.0f / d - 1.0f / d0) / (d * d);
+            float theta = obstacleReading.angle_rad;
+            forward += (double)(-mag * cosf(theta));  // pushes back when obstacle is ahead
+            strafe  += (double)(-mag * sinf(theta));  // pushes laterally based on angle
+        }
+        // Clamp to safe velocity limits after APF injection
+        forward = constrain(forward, -(double)MAX_Back, (double)MAX_FORWARD);
+        strafe  = constrain(strafe,  -(double)MAX_FORWARD, (double)MAX_FORWARD);
+        // --- end APF ---
+
         // Mecanum mixing — matches original followTrajectory() JOYSTICK mode:
         // updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
         updateSetpoints(forward + strafe + turn,

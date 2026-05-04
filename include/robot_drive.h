@@ -10,6 +10,7 @@
 
 #define MAX_FORWARD 8
 #define MAX_TURN 5
+#define MAX_Back 4 //want to slowly move backwards so we don't bump something on accident
 
 void setupDrive();
 void updateSetpoints(double FrLft, double BkLft, double FrRgt, double BkRgt);

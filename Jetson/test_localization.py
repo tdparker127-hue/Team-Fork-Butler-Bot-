@@ -302,6 +302,9 @@ def main():
         # ---- Undistort (optional but improves accuracy) ----
         frame = cv2.undistort(frame, K, dist)
 
+        # ---- Flip vertical (camera mounted upside-down) ----
+        frame = cv2.flip(frame, 0)
+
         # ---- AprilTag detection ----
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         detections = detector.detect(
