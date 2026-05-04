@@ -6,7 +6,7 @@ Receives Xbox One controller input over Bluetooth (via pygame) and sends
 command strings over USB serial to two ESP32s:
 
   /dev/Drive  →  "fl:X;bl:X;fr:X;br:X;\n"   (wheel velocity setpoints, rad/s)
-  /dev/Arm    →  "lift:X;grip:Y;\n"           (arm rate commands, rad/s)
+  /dev/Arm    →  "lift:X;grip:Y;\n"           (arm absolute position setpoints, rad)
 
 Receives IMU telemetry back from both ESPs (lines starting with "IMU:").
 All higher-level kinematics live here; the ESPs are pure actuator nodes.
@@ -38,7 +38,7 @@ import serial
 import threading
 import time
 
-from Jetson.config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
+from config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
 
 # ── Serial ports ──────────────────────────────────── ─────────────────────────
 DRIVE_PORT = "/dev/ttyACM0"  #Drive serial = xx xx xx xx 86 74
@@ -77,6 +77,13 @@ BTN_RB = 7  # Right bumper  → lift up
 # of the bumper, try BTN_LB=3 / BTN_RB=4.
 
 
+def _clamp_range(value: float, lower: float, upper: float) -> float:
+    """Clamp a value between two bounds, regardless of numeric ordering."""
+    if lower <= upper:
+        return max(lower, min(upper, value))
+    return min(lower, max(upper, value))
+
+
 def _trigger_depth(raw: float) -> float:
     """Convert trigger axis (rest=-1, full=+1) to depth in [0, 1]."""
     return max(0.0, (raw + 1.0) / 2.0)
@@ -106,11 +113,13 @@ def step_arm_setpoints(
     """
     # Lift: fixed rate, direction from which bumper is held
     lift_delta = (int(rb_held) - int(lb_held)) * MAX_LIFT_SPEED * dt
-    lift_sp = max(MIN_LIFT_RAD, min(MAX_LIFT_RAD, lift_sp + lift_delta))
+    #lift_sp = lift_sp + lift_delta
+    lift_sp = _clamp_range(lift_sp + lift_delta, MIN_LIFT_RAD, MAX_LIFT_RAD)
 
     # Grip: proportional — net depth drives the rate
     grip_delta = (_trigger_depth(rt_raw) - _trigger_depth(lt_raw)) * MAX_GRIP_SPEED * dt
-    grip_sp = max(MIN_GRIP_RAD, min(MAX_GRIP_RAD, grip_sp + grip_delta))
+    #grip_sp = grip_sp + grip_delta
+    grip_sp = _clamp_range(grip_sp + grip_delta, MIN_GRIP_RAD, MAX_GRIP_RAD)
 
     return lift_sp, grip_sp
 

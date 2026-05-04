@@ -158,10 +158,10 @@ TAG_WORLD_POSES = {
 # Must also match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in include/arm_drive.h
 # ===========================================================================
 
-MIN_LIFT_RAD = -3.0   # encoder pos when fully lowered  (TUNING: 0.0 ✅ — TODO update)
-MAX_LIFT_RAD =  3.0   # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO update)
+MIN_LIFT_RAD = 0 # encoder pos when fully lowered  (TUNING: 0.0 ✅ — TODO update)
+MAX_LIFT_RAD =  3.5 # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO update)
 MIN_GRIP_RAD = 0   # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
-MAX_GRIP_RAD =  -1.68  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
+MAX_GRIP_RAD = 1.85  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
 
 
 # ===========================================================================
