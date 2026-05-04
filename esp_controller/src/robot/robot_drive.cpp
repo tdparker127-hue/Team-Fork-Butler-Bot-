@@ -39,3 +39,10 @@ void updatePIDs() {
         motors[i].drive(controlEfforts[i]);
     }
 }
+
+// Copy the current filtered wheel velocities (rad/s) into caller-supplied array.
+// Order: [FrLft, BkLft, FrRgt, BkRgt] — same as updateSetpoints().
+void getEncoderVelocities(float out[NUM_MOTORS]) {
+    for (uint8_t i = 0; i < NUM_MOTORS; i++)
+        out[i] = (float)velocities[i];
+}

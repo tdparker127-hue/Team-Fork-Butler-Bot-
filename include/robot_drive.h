@@ -14,5 +14,6 @@
 void setupDrive();
 void updateSetpoints(double FrLft, double BkLft, double FrRgt, double BkRgt);
 void updatePIDs();
+void getEncoderVelocities(float out[NUM_MOTORS]);
 
 #endif // ROBOT_DRIVE_H
