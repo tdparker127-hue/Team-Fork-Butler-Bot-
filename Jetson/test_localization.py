@@ -63,8 +63,8 @@ except ImportError:
 CAMERA_DEVICE  = DEPTH_CAMERA_DEVICE   # imported from Jetson/config.py
 CALIB_FILE     = Path(__file__).parent / "vision/camera_calibration_live.npz"
 
-FRAME_W = 1280
-FRAME_H =  720
+FRAME_W = 640
+FRAME_H =  360
 FRAME_FPS = 15
 
 DETECT_NTHREADS    = 2
