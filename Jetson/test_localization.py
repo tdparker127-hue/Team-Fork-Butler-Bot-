@@ -104,6 +104,11 @@ GATING = GatingMethod.MAHALANOBIS
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
 TEST_MODE = TestMode.VISION_ONLY
+#   Options:
+#     TestMode.VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
+#     TestMode.IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.
+#     TestMode.ENCODER_ONLY — predict() only; pure dead-reckoning with no corrections.
+#     TestMode.FULL         — predict() + update_imu() + update_apriltag(); full fusion.
 
 DRIVE_PORT = "/dev/ttyACM0"   # drive ESP32 serial port
 BAUD_RATE  = 115200
