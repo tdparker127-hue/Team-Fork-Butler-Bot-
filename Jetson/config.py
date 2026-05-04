@@ -117,24 +117,38 @@ def tag_pose(dx: float, dy: float, facing_angle_deg: float,
 # 180   → WEST  (tag on east  wall, faces into arena along -X)
 # 270   → SOUTH (tag on north wall, faces into arena along -Y)
 TAG_WORLD_POSES = {
-    # Tag 1 — WORLD ORIGIN.  West wall, facing east.
-    1: tag_pose(dx=0.0, dy=0.0, facing_angle_deg=0.0),
+    # All positions are (x - 3.57, y - 2.565) from mission_config.yaml
+    # heading converted from radians to degrees (facing_angle_deg = outward normal direction)
 
-    # West wall (same wall as tag 1)
-    2: tag_pose(dx=0.0, dy=1.5, facing_angle_deg=0.0),
+    # Tag 1 — WORLD ORIGIN (table_tray).  heading=0 → faces +X
+    1: tag_pose(dx= 0.0000, dy= 0.0000, facing_angle_deg=  0.0),
 
-    # North wall (facing south = 270°)
-    3: tag_pose(dx=1.0, dy=3.0, facing_angle_deg=270.0),
-    4: tag_pose(dx=3.0, dy=3.0, facing_angle_deg=270.0),
+    # Tag 2 — table_back_left.  heading=3.14 rad → faces -X (180°)
+    2: tag_pose(dx= 0.2850, dy= 0.3000, facing_angle_deg=180.0),
 
-    # East wall (facing west = 180°)
-    5: tag_pose(dx=4.0, dy=1.5, facing_angle_deg=180.0),
+    # Tag 3 — ramp_tag_2.  heading=0 rad → faces +X (0°)
+    3: tag_pose(dx=-1.5125, dy= 0.2875, facing_angle_deg=  0.0),
 
-    # South wall (facing north = 90°)
-    6: tag_pose(dx=2.0, dy=0.0, facing_angle_deg=90.0),
-    7: tag_pose(dx=4.0, dy=0.0, facing_angle_deg=90.0),
-    8: tag_pose(dx=2.0, dy=3.0, facing_angle_deg=90.0),
-    9: tag_pose(dx=4.0, dy=3.0, facing_angle_deg=90.0),
+    # Tag 4 — ramp_tag_1.  heading=-1.57 rad → faces -Y (270°)
+    4: tag_pose(dx=-2.2975, dy=-0.5750, facing_angle_deg=270.0),
+
+    # Tag 5 — left_tag_table.  heading=0 rad → faces +X (0°)
+    5: tag_pose(dx=-3.2550, dy=-1.9750, facing_angle_deg=  0.0),
+
+    # Tag 6 — right_tag_table.  heading=0 rad → faces +X (0°)
+    6: tag_pose(dx=-3.2550, dy=-1.3900, facing_angle_deg=  0.0),
+
+    # Tag 7 — table_back_right.  heading=3.14 rad → faces -X (180°)
+    7: tag_pose(dx= 1.0850, dy=-1.0350, facing_angle_deg=180.0),
+
+    # Tag 8 — dishwasher_tag.  heading=1.57 rad → faces +Y (90°)
+    8: tag_pose(dx= 0.4025, dy=-2.2025, facing_angle_deg= 90.0),
+
+    # Tag 9 — front_wall.  heading=1.57 rad → faces +Y (90°)
+    9: tag_pose(dx=-2.6000, dy=-2.5050, facing_angle_deg= 90.0),
+
+    # Tag 0 — back_wall.  heading=0 rad → faces +X (0°)
+    0: tag_pose(dx=-0.9750, dy= 0.9800, facing_angle_deg=  0.0),
 }
 
 

@@ -1,0 +1,198 @@
+# Mission task configuration
+#
+# All poses are expressed in the global frame.
+# Condition entries are boolean expressions intended to be evaluated by the
+# mission/task manager against the current system state / blackboard.
+
+
+frame: global
+map:
+  resolution: 0.1
+  boundary:
+    - x: 0.0
+      y: 0.0
+    - x: 4.72
+      y: 0.0
+    - x: 4.72
+      y: 3.545
+    - x: 0.0
+      y: 3.545
+  landmarks:
+    # Landmark heading convention for AprilTag localization:
+    # - heading is the world-frame yaw of the wall outward normal / viewing direction
+    # - internally the AprilTag transform uses the opposite tag-frame normal,
+    #   so the runtime applies a 180 deg flip when building T_world_from_tag
+    # - world frame is +x/+y in the floor plane, +z up
+    - name: left_tag_table
+      id: 5
+      position:
+        x: 0.315
+        y: 0.59
+      heading: 0.0
+    - name: right_tag_table
+      id: 6
+      position:
+        x: 0.315
+        y: 1.175
+      heading: 0.0
+    - name: ramp_tag_1
+      id: 4
+      position:
+        x: 1.2725
+        y: 1.99
+      heading: -1.57
+    - name: ramp_tag_2
+      id: 3
+      position:
+        x: 2.0575
+        y: 2.8525
+      heading: 0
+    - name: dishwasher_tag
+      id: 8
+      position:
+        x: 3.9725
+        y: 0.3625
+      heading: 1.57 
+    - name: table_back_right
+      id: 7
+      position:
+        x: 4.655
+        y: 1.53
+      heading: 3.14
+    - name: table_tray
+      id: 1
+      position:
+        x: 3.57
+        y: 2.565
+      heading: 0
+    - name: table_back_left
+      id: 2
+      position:
+        x: 3.855
+        y: 2.865
+      heading: 3.14
+    - name: back_wall
+      id: 0
+      position:
+        x: 2.595
+        y: 3.545
+      heading: 0
+    - name: front_wall
+      id: 9
+      position:
+        x: 0.97
+        y: 0.06
+      heading: 1.57
+  obstacles:
+    - name: table
+      boundary:
+        - x: 0.0
+          y: 0.28
+        - x: 0.58
+          y: 0.28
+        - x: 0.58
+          y: 1.45
+        - x: 0.0
+          y: 1.45
+    - name: prep
+      boundary:
+        - x: 0.0
+          y: 0.28
+        - x: 0.58
+          y: 0.28
+        - x: 0.58
+          y: 1.45
+        - x: 0.0
+          y: 1.45
+    - name: dishwasher
+      boundary:
+        - x: 0.0
+          y: 0.28
+        - x: 0.58
+          y: 0.28
+        - x: 0.58
+          y: 1.45
+        - x: 0.0
+          y: 1.45
+    - name: ramp
+      boundary:
+        - x: 0.0
+          y: 0.28
+        - x: 0.58
+          y: 0.28
+        - x: 0.58
+          y: 1.45
+        - x: 0.0
+          y: 1.45
+initial_state:
+  position:
+    x: 2.15
+    y: 1.31
+  heading: 3.14
+localization:
+  # Demo/local defaults: trust AprilTag and wheel odometry far more than raw IMU.
+  filter: ekf
+  wheel_twist_measurement_noise:
+    - [0.005, 0.0, 0.0]
+    - [0.0, 0.005, 0.0]
+    - [0.0, 0.0, 0.02]
+  apriltag_measurement_noise:
+    - [0.01, 0.0, 0.0]
+    - [0.0, 0.01, 0.0]
+    - [0.0, 0.0, 0.02]
+  gyro_measurement_noise:
+    - [1.5]
+  use_imu_accel_in_prediction: false
+mission_runtime:
+  control_rate_hz: 40.0
+  waypoint_capture_radius: 0.05
+  controller_v_max: 0.35
+  controller_omega_max: 1.8
+  person_detection_period_s: 1.0
+tasks:
+  - name: drive_to_tray
+    desired_elevator_height_m: 0.0
+    # Optional planar arm waypoints, sent in order as ARM_CMD,x,y
+    # arm_waypoints:
+    #   - x: 0.12
+    #     y: 0.18
+    #   - x: 0.16
+    #     y: 0.22
+    # arm_point_dwell_s: 0.5
+    goal:
+      position:
+        x: 1.5
+        y: 1.31
+      heading: 3.14
+    enter_conditions:
+      - current_task == "drive_to_tray"
+    completion_conditions:
+      - distance_to_goal <= 0.10
+      - abs(heading_error) <= 0.10
+      #- abs(elevator_height_error_m) <= 0.01
+  - name: drive_to_zone
+    desired_elevator_height_m: 0.0
+    goal:
+      position:
+        x: 1.55
+        y: 0.55
+      heading: 1.57
+    enter_conditions:
+      - current_task == "drive_to_zone"
+    completion_conditions:
+      - distance_to_goal <= 0.08
+      - abs(heading_error) <= 0.12
+      - abs(elevator_height_error_m) <= 0.01
+  - name: drive_to_elevator
+    desired_elevator_height_m: 0.0
+    goal:
+      position:
+        x: 0.7
+        y: 1.4
+      heading: 1.57
+    enter_conditions:
+      - current_task == "drive_to_elevator"
+    completion_conditions:
+      - distance_to_goal <= 0.05
+      - abs(heading_error) <= 0.10
+      - abs(elevator_height_error_m) <= 0.01
