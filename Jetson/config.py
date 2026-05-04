@@ -190,24 +190,33 @@ HEADING_REACHED_RAD = 0.08  # heading tolerance for final orientation [rad] (~5�
 # ===========================================================================
 
 # 6.1 Process noise
-SIGMA_XY = 0.05  # translational noise density [m/s]
-SIGMA_THETA = 0.02  # rotational noise density [rad/s]
+SIGMA_XY    = 0.05   # position process noise density [m/s]
+SIGMA_THETA = 0.02   # heading process noise density [rad/s]  (unused in predict; kept for Q_theta row)
+SIGMA_VXY   = 0.30   # body-frame velocity process noise density [m/s²]
+SIGMA_OMEGA_PROC = 0.20  # angular velocity process noise density [rad/s²]
 
 # 6.2 IMU measurement noise
 SIGMA_IMU_YAW = 0.035  # BNO08x heading noise [rad]
 
 # 6.3 AprilTag measurement noise (for 1 tag; scales by 1/√n_tags)
-SIGMA_TAG_XY = 0.03  # per-axis position noise [m]
-SIGMA_TAG_YAW = 0.04  # heading noise [rad]
+SIGMA_TAG_XY  = 0.03   # per-axis position noise [m]
+SIGMA_TAG_YAW = 0.04   # heading noise [rad]
+
+# 6.3b Encoder velocity measurement noise
+SIGMA_ENC_VXY   = 0.05   # body-frame translational velocity noise [m/s]
+SIGMA_ENC_OMEGA = 0.04   # body-frame angular velocity noise [rad/s]
 
 # 6.4 Gating thresholds — Mahalanobis
-MAHAL_THRESH_IMU = 3.841  # chi²(1, 0.95) — IMU yaw gate
-MAHAL_THRESH_TAG = 7.815  # chi²(3, 0.95) — AprilTag pose gate
+MAHAL_THRESH_IMU = 3.841   # chi²(1, 0.95) — IMU yaw gate
+MAHAL_THRESH_TAG = 7.815   # chi²(3, 0.95) — AprilTag pose gate
+MAHAL_THRESH_ENC = 7.815   # chi²(3, 0.95) — encoder velocity gate
 
 # 6.4 Gating thresholds — Euclidean
-EUCLID_THRESH_IMU_RAD = 0.50  # max acceptable |yaw innovation| [rad]
-EUCLID_THRESH_TAG_POS_M = 0.50  # max acceptable sqrt(dx²+dy²) [m]
-EUCLID_THRESH_TAG_YAW_RAD = 0.40  # max acceptable |heading innovation| [rad]
+EUCLID_THRESH_IMU_RAD     = 0.50   # max acceptable |yaw innovation| [rad]
+EUCLID_THRESH_TAG_POS_M   = 0.50   # max acceptable sqrt(dx²+dy²) [m]
+EUCLID_THRESH_TAG_YAW_RAD = 0.40   # max acceptable |heading innovation| [rad]
+EUCLID_THRESH_ENC_VXY_M_S = 1.00   # max acceptable |velocity innovation| [m/s]
+EUCLID_THRESH_ENC_OMEGA_RAD_S = 1.00  # max acceptable |omega innovation| [rad/s]
 
 # 6.5 Motor sign convention  [FrLft, BkLft, FrRgt, BkRgt]
 # Flip individual elements if odometry drifts in a consistent direction.
