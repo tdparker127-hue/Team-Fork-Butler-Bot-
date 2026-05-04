@@ -61,7 +61,7 @@ class GatingMethod(enum.Enum):
     EUCLIDEAN
         Gate on the raw L2 norm of the innovation vector, independent of P.
         Simpler and more predictable once the environment is well-known.
-        Thresholds are the EUCLIDEAN_THRESH_* constants above.
+        Thresholds are the EUCLID_THRESH_* constants in config.py.
     """
     MAHALANOBIS = "mahalanobis"
     EUCLIDEAN   = "euclidean"
@@ -173,7 +173,7 @@ class EKFLocalizer:
             innovation = _wrap_pi(yaw - float(H @ self._x))
 
             if self._gating is GatingMethod.EUCLIDEAN:
-                if abs(innovation) > EUCLIDEAN_THRESH_IMU_RAD:
+                if abs(innovation) > EUCLID_THRESH_IMU_RAD:
                     return False
             else:  # MAHALANOBIS
                 S_val = float(H @ self._P @ H.T + R_imu)
@@ -227,8 +227,8 @@ class EKFLocalizer:
 
             if self._gating is GatingMethod.EUCLIDEAN:
                 pos_err = math.hypot(innovation[0], innovation[1])
-                if (pos_err > EUCLIDEAN_THRESH_TAG_POS_M or
-                        abs(innovation[2]) > EUCLIDEAN_THRESH_TAG_YAW_RAD):
+                if (pos_err > EUCLID_THRESH_TAG_POS_M or
+                        abs(innovation[2]) > EUCLID_THRESH_TAG_YAW_RAD):
                     return False
                 S_inv = None  # computed below only if we pass the gate
             else:  # MAHALANOBIS

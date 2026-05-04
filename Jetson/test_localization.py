@@ -27,16 +27,25 @@ arrive — that's correct; this is a "vision-only" smoothing test.
 
 import math
 import sys
+import threading
 import time
 from pathlib import Path
+
+import serial
 
 import cv2
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Path setup — allow running from the repo root
+# Path setup — find the repo root by locating the Jetson package marker
+# Works regardless of CWD or how deep the script is invoked from.
 # ---------------------------------------------------------------------------
-_repo_root = Path(__file__).resolve().parent
+_here = Path(__file__).resolve().parent
+_repo_root = next(
+    (p for p in [_here, _here.parent, _here.parent.parent]
+     if (p / "Jetson" / "__init__.py").exists()),
+    _here.parent,  # fallback
+)
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
@@ -50,6 +59,22 @@ from Jetson.config import (
     COLOR_CAMERA_DEVICE, DEPTH_CAMERA_DEVICE,
 )
 from Jetson.localization.ekf_localizer import EKFLocalizer, GatingMethod
+import enum
+
+
+class TestMode(enum.Enum):
+    """
+    Controls which EKF inputs are active during the test run.
+
+    VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
+    IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.
+    ENCODER_ONLY — predict() only; pure dead-reckoning with no corrections.
+    FULL         — predict() + update_imu() + update_apriltag(); full fusion.
+    """
+    VISION_ONLY  = "vision_only"
+    IMU_ONLY     = "imu_only"
+    ENCODER_ONLY = "encoder_only"
+    FULL         = "full"
 
 try:
     import pupil_apriltags as apriltag
@@ -76,14 +101,102 @@ DETECT_REFINE      = 1
 
 # EKF gating — switch to GatingMethod.EUCLIDEAN if you prefer fixed thresholds
 GATING = GatingMethod.MAHALANOBIS
+
+# ---- Test mode — change this one line to switch what the EKF fuses ----
+TEST_MODE = TestMode.VISION_ONLY
+#   Options:
+#     TestMode.VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
+#     TestMode.IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.
+#     TestMode.ENCODER_ONLY — predict() only; pure dead-reckoning with no corrections.
+#     TestMode.FULL         — predict() + update_imu() + update_apriltag(); full fusion.
+
+DRIVE_PORT = "/dev/ttyACM0"   # drive ESP32 serial port
+BAUD_RATE  = 115200
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Serial telemetry state — populated by a background reader thread when the
+# drive ESP32 is connected; blocks start at zero so the overlay always draws.
+# ---------------------------------------------------------------------------
+_imu_lock = threading.Lock()
+_imu_data: dict = {
+    "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
+    "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0,
+}
+_enc_lock = threading.Lock()
+_enc_data: dict = {"fl": 0.0, "bl": 0.0, "fr": 0.0, "br": 0.0}
+# NOTE: encoder data is display-only here.  This test is vision-only; ekf.predict()
+# is never called.  To enable odometry fusion, call ekf.predict(enc_data, dt) in
+# the main loop using timestamps to compute dt.
+
+
+def _parse_imu_line(line: str) -> dict | None:
+    if not line.startswith("IMU:"):
+        return None
+    result: dict = {}
+    try:
+        for token in line[4:].split(";"):
+            if token:
+                key, _, val = token.partition(":")
+                result[key] = float(val)
+    except (ValueError, AttributeError):
+        return None
+    return result if result else None
+
+
+def _parse_enc_line(line: str) -> dict | None:
+    if not line.startswith("ENC:"):
+        return None
+    result: dict = {}
+    try:
+        for token in line[4:].split(";"):
+            if token:
+                key, _, val = token.partition(":")
+                result[key] = float(val)
+    except (ValueError, AttributeError):
+        return None
+    return result if len(result) == 4 else None
+
+
+def _serial_reader(ser: serial.Serial) -> None:
+    """Background thread: read IMU and encoder lines from the drive ESP32."""
+    while True:
+        try:
+            raw = ser.readline()
+            if not raw:
+                continue
+            line = raw.decode("utf-8", errors="replace").strip()
+            imu = _parse_imu_line(line)
+            if imu:
+                with _imu_lock:
+                    _imu_data.update(imu)
+                continue
+            enc = _parse_enc_line(line)
+            if enc:
+                with _enc_lock:
+                    _enc_data.update(enc)
+        except serial.SerialException:
+            break
+        except Exception:
+            pass
+
+
+def _get_imu() -> dict:
+    with _imu_lock:
+        return dict(_imu_data)
+
+
+def _get_enc() -> dict:
+    with _enc_lock:
+        return dict(_enc_data)
 
 
 def _rad2deg(r: float) -> float:
     return math.degrees(r)
 
 
-def _draw_overlay(frame, raw_result, ekf_pose, fps: float) -> None:
+def _draw_overlay(frame, raw_result, ekf_pose, fps: float, enc_data: dict, imu_data: dict) -> None:
     """Draw pose text onto the frame (in-place)."""
     h, w = frame.shape[:2]
     font       = cv2.FONT_HERSHEY_SIMPLEX
@@ -98,6 +211,12 @@ def _draw_overlay(frame, raw_result, ekf_pose, fps: float) -> None:
         cv2.putText(img, text, (col, pad + row * line_h),
                     font, scale, color,     thickness,     cv2.LINE_AA)
 
+    def put_b(img, text, row_from_bottom, col, color=(255, 255, 255)):
+        """Draw text anchored from the bottom edge of the frame."""
+        y = h - pad - row_from_bottom * line_h
+        cv2.putText(img, text, (col, y), font, scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
+        cv2.putText(img, text, (col, y), font, scale, color, thickness, cv2.LINE_AA)
+
     # ---- left column: raw tag estimate ----
     put(frame, "-- Raw tag estimate --", 0, 8, (180, 255, 180))
     if raw_result is not None:
@@ -109,16 +228,31 @@ def _draw_overlay(frame, raw_result, ekf_pose, fps: float) -> None:
     else:
         put(frame, "No tags in view", 1, 8, (80, 80, 255))
 
-    # ---- right column: EKF pose ----
+    # ---- right column: EKF pose + FPS ----
     col_r = w // 2
     ex, ey, etheta = ekf_pose
     put(frame, "-- EKF fused pose --",              0, col_r, (255, 220, 100))
     put(frame, f"x   = {ex:+.3f} m",               1, col_r)
     put(frame, f"y   = {ey:+.3f} m",               2, col_r)
     put(frame, f"yaw = {_rad2deg(etheta):+.1f} deg", 3, col_r)
+    put(frame, f"FPS: {fps:.1f}",                   4, col_r, (200, 200, 200))
 
-    # ---- bottom: FPS ----
-    put(frame, f"FPS: {fps:.1f}", h // line_h - 1, 8, (200, 200, 200))
+    # ---- bottom-left: IMU (drive ESP) — Euler angles in deg, rates in deg/s ----
+    put_b(frame, "-- IMU (drive) --",                                      6, 8, (100, 220, 255))
+    put_b(frame, f"roll      = {_rad2deg(imu_data['roll']):+.1f} deg",    5, 8)
+    put_b(frame, f"pitch     = {_rad2deg(imu_data['pitch']):+.1f} deg",   4, 8)
+    put_b(frame, f"yaw       = {_rad2deg(imu_data['yaw']):+.1f} deg",     3, 8)
+    put_b(frame, f"roll rate = {_rad2deg(imu_data['rollRate']):+.1f} d/s",  2, 8)
+    put_b(frame, f"pitch rate= {_rad2deg(imu_data['pitchRate']):+.1f} d/s", 1, 8)
+    put_b(frame, f"yaw rate  = {_rad2deg(imu_data['yawRate']):+.1f} d/s",   0, 8)
+
+    # ---- bottom-right: wheel encoder velocities (rad/s) ----
+    col_enc = w - 195
+    put_b(frame, "-- Encoders (rad/s) --",      4, col_enc, (255, 200, 100))
+    put_b(frame, f"FL = {enc_data['fl']:+.2f}", 3, col_enc)
+    put_b(frame, f"BL = {enc_data['bl']:+.2f}", 2, col_enc)
+    put_b(frame, f"FR = {enc_data['fr']:+.2f}", 1, col_enc)
+    put_b(frame, f"BR = {enc_data['br']:+.2f}", 0, col_enc)
 
 
 def _draw_tag_boxes(frame, detections, camera_params) -> None:
@@ -159,6 +293,18 @@ def main():
         sys.exit(1)
     print(f"Camera opened: {CAMERA_DEVICE}")
 
+    # Optional: connect to drive ESP32 for live encoder + IMU telemetry overlay.
+    # If the port is unavailable the overlay simply shows zeros.
+    try:
+        drive_ser = serial.Serial(DRIVE_PORT, BAUD_RATE, timeout=1)
+        time.sleep(2)           # allow ESP32 to reboot after DTR assertion
+        drive_ser.reset_input_buffer()
+        threading.Thread(target=_serial_reader, args=(drive_ser,), daemon=True).start()
+        print(f"Drive serial open: {DRIVE_PORT}  (encoder + IMU overlay active)")
+    except serial.SerialException as e:
+        print(f"[WARN] Drive serial unavailable ({DRIVE_PORT}): {e}")
+        print("[WARN] Encoder/IMU overlay will show zeros.")
+
     # AprilTag detector
     detector = apriltag.Detector(
         families=TAG_FAMILY,
@@ -183,6 +329,8 @@ def main():
     t_prev = time.monotonic()
     raw_result = None
 
+    print(f"Test mode: {TEST_MODE.value}")
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -202,16 +350,31 @@ def main():
             tag_size=TAG_SIZE_M,
         )
 
+        # ---- Compute dt for predict step ----
+        now = time.monotonic()
+        dt = now - t_prev
+
+        # ---- Encoder predict (ENCODER_ONLY or FULL) ----
+        if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.FULL):
+            enc = _get_enc()
+            ekf.predict([enc["fl"], enc["bl"], enc["fr"], enc["br"]], dt)
+
+        # ---- IMU update (IMU_ONLY or FULL) ----
+        if TEST_MODE in (TestMode.IMU_ONLY, TestMode.FULL):
+            imu = _get_imu()
+            ekf.update_imu(imu["yaw"])
+
         # ---- Localize ----
         cam_pos, R_wc, n_used = localize_camera(detections, TAG_WORLD_POSES)
         if cam_pos is not None:
             rx, ry, ryaw = robot_pose_from_camera(cam_pos, R_wc)
             raw_result = (rx, ry, ryaw, n_used)
 
-            # Update EKF (no predict since no wheel data in this test)
-            ekf.update_apriltag(rx, ry, ryaw, n_tags=n_used)
+            # ---- AprilTag update (VISION_ONLY or FULL) ----
+            if TEST_MODE in (TestMode.VISION_ONLY, TestMode.FULL):
+                ekf.update_apriltag(rx, ry, ryaw, n_tags=n_used)
 
-            print(f"[RAW]  x={rx:+.3f}  y={ry:+.3f}  "
+            print(f"[{TEST_MODE.value.upper()}]  x={rx:+.3f}  y={ry:+.3f}  "
                   f"yaw={_rad2deg(ryaw):+.1f} deg  "
                   f"({n_used} tag{'s' if n_used != 1 else ''})   "
                   f"FPS={fps:.1f}", end="\r")
@@ -220,14 +383,22 @@ def main():
 
         # ---- Draw ----
         ex, ey, etheta, _ = ekf.get_pose()
+        enc_data = _get_enc()
+        imu_data = _get_imu()
         _draw_tag_boxes(frame, detections, camera_params)
-        _draw_overlay(frame, raw_result, (ex, ey, etheta), fps)
+        _draw_overlay(frame, raw_result, (ex, ey, etheta), fps, enc_data, imu_data)
+        # mode label — bottom centre
+        cv2.putText(frame, f"mode: {TEST_MODE.value}",
+                    (frame.shape[1] // 2 - 80, frame.shape[0] - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3, cv2.LINE_AA)
+        cv2.putText(frame, f"mode: {TEST_MODE.value}",
+                    (frame.shape[1] // 2 - 80, frame.shape[0] - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 180, 255), 1, cv2.LINE_AA)
 
         cv2.imshow("Localization Test  (q=quit  r=reset EKF  s=print state)", frame)
 
         # ---- FPS ----
-        now = time.monotonic()
-        fps = 0.9 * fps + 0.1 * (1.0 / max(now - t_prev, 1e-6))
+        fps = 0.9 * fps + 0.1 * (1.0 / max(dt, 1e-6))
         t_prev = now
 
         # ---- Key handling ----

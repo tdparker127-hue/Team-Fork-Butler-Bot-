@@ -17,16 +17,17 @@ Sections mirror TUNING.md:
 
 import numpy as np
 
+
 # ===========================================================================
 # Section 1.1 — Robot Geometry
 # TUNING.md reference: "1.1 Robot Geometry"
 # ===========================================================================
 
-WHEEL_R = 0.045  # wheel radius [m]  — TUNING.md lists 0.06; measure and update
-L_X = 0.1665  # half wheelbase front-to-back (longitudinal) [m]
-L_Y = 0.2075  # half wheelbase left-to-right  (lateral)     [m]
+WHEEL_R = 0.045   # wheel radius [m]  — TUNING.md lists 0.06; measure and update
+L_X     = 0.1665  # half wheelbase front-to-back (longitudinal) [m]
+L_Y     = 0.2075    # half wheelbase left-to-right  (lateral)     [m]
 
-MAX_Y = 0.525  # most forward point on robot relative to center [m]
+MAX_Y = 0.525 # most forward point on robot relative to center [m]
 
 
 # ===========================================================================
@@ -44,22 +45,19 @@ MAX_Y = 0.525  # most forward point on robot relative to center [m]
 #   [2,3] = height of camera above robot base origin
 T_CAM_DEPTH: np.ndarray = np.array(
     [
-        [1.0, 0.0, 0.0, 0.00],
-        [0.0, 1.0, 0.0, 0.28],
-        [0.0, 0.0, 1.0, 0.2155],
+        [1.0, 0.0, 0.0, 0.00],  
+        [0.0, 1.0, 0.0, 0.28],  
+        [0.0, 0.0, 1.0, 0.2155],  
         [0.0, 0.0, 0.0, 1.00],
     ],
     dtype=float,
 )
-T_CAM_ROBOT: np.ndarray = np.array(
-    [
-        [1.0, 0.0, 0.0, 0.028],
-        [0.0, 1.0, 0.0, 0.03],
-        [0.0, 0.0, 1.0, 0.58],
-        [0.0, 0.0, 0.0, 1.00],
-    ],
-    dtype=float,
-)
+T_CAM_ROBOT: np.ndarray = np.array([
+    [1.0, 0.0, 0.0,  0.028],   
+    [0.0, 1.0, 0.0,  0.03],   
+    [0.0, 0.0, 1.0,  0.58], 
+    [0.0, 0.0, 0.0,  1.00],
+], dtype=float)
 
 
 # ===========================================================================
@@ -67,8 +65,8 @@ T_CAM_ROBOT: np.ndarray = np.array(
 # TUNING.md reference: "1.3 AprilTag Layout"
 # ===========================================================================
 
-TAG_FAMILY = "tag36h11"
-TAG_SIZE_M = 0.10  # printed tag side length (outer black border) [m]
+TAG_FAMILY  = "tag36h11"
+TAG_SIZE_M  = 0.10   # printed tag side length (outer black border) [m]
 TAG_HEIGHT_M = 0.305  # tag centre height above the floor [m]  — measure and update
 
 # ── World-frame coordinate convention ──────────────────────────────────────
@@ -89,15 +87,14 @@ def wall_tag_rotation(facing_angle_deg: float) -> np.ndarray:
     270   → faces -Y (SOUTH, tag is on north wall)
     """
     phi = np.radians(facing_angle_deg)
-    tag_z = np.array([np.cos(phi), np.sin(phi), 0.0])
-    tag_x = np.array([-np.sin(phi), np.cos(phi), 0.0])
-    tag_y = np.array([0.0, 0.0, 1.0])
+    tag_z = np.array([ np.cos(phi),  np.sin(phi), 0.0])
+    tag_x = np.array([-np.sin(phi),  np.cos(phi), 0.0])
+    tag_y = np.array([ 0.0,          0.0,          1.0])
     return np.column_stack([tag_x, tag_y, tag_z])
 
 
-def tag_pose(
-    dx: float, dy: float, facing_angle_deg: float, height_m: float = TAG_HEIGHT_M
-) -> dict:
+def tag_pose(dx: float, dy: float, facing_angle_deg: float,
+             height_m: float = TAG_HEIGHT_M) -> dict:
     """
     Define a tag world pose as an offset (dx, dy) from tag 1 (origin).
 
@@ -122,26 +119,36 @@ def tag_pose(
 TAG_WORLD_POSES = {
     # All positions are (x - 3.57, y - 2.565) from mission_config.yaml
     # heading converted from radians to degrees (facing_angle_deg = outward normal direction)
+
     # Tag 1 — WORLD ORIGIN (table_tray).  heading=0 → faces +X
-    1: tag_pose(dx=0.0000, dy=0.0000, facing_angle_deg=0.0),
+    1: tag_pose(dx= 0.0000, dy= 0.0000, facing_angle_deg=  0.0),
+
     # Tag 2 — table_back_left.  heading=3.14 rad → faces -X (180°)
-    2: tag_pose(dx=0.2850, dy=0.3000, facing_angle_deg=180.0),
+    2: tag_pose(dx= 0.2850, dy= 0.3000, facing_angle_deg=180.0),
+
     # Tag 3 — ramp_tag_2.  heading=0 rad → faces +X (0°)
-    3: tag_pose(dx=-1.5125, dy=0.2875, facing_angle_deg=0.0),
+    3: tag_pose(dx=-1.5125, dy= 0.2875, facing_angle_deg=  0.0),
+
     # Tag 4 — ramp_tag_1.  heading=-1.57 rad → faces -Y (270°)
     4: tag_pose(dx=-2.2975, dy=-0.5750, facing_angle_deg=270.0),
+
     # Tag 5 — left_tag_table.  heading=0 rad → faces +X (0°)
-    5: tag_pose(dx=-3.2550, dy=-1.9750, facing_angle_deg=0.0),
+    5: tag_pose(dx=-3.2550, dy=-1.9750, facing_angle_deg=  0.0),
+
     # Tag 6 — right_tag_table.  heading=0 rad → faces +X (0°)
-    6: tag_pose(dx=-3.2550, dy=-1.3900, facing_angle_deg=0.0),
+    6: tag_pose(dx=-3.2550, dy=-1.3900, facing_angle_deg=  0.0),
+
     # Tag 7 — table_back_right.  heading=3.14 rad → faces -X (180°)
-    7: tag_pose(dx=1.0850, dy=-1.0350, facing_angle_deg=180.0),
+    7: tag_pose(dx= 1.0850, dy=-1.0350, facing_angle_deg=180.0),
+
     # Tag 8 — dishwasher_tag.  heading=1.57 rad → faces +Y (90°)
-    8: tag_pose(dx=0.4025, dy=-2.2025, facing_angle_deg=90.0),
+    8: tag_pose(dx= 0.4025, dy=-2.2025, facing_angle_deg= 90.0),
+
     # Tag 9 — front_wall.  heading=1.57 rad → faces +Y (90°)
-    9: tag_pose(dx=-2.6000, dy=-2.5050, facing_angle_deg=90.0),
+    9: tag_pose(dx=-2.6000, dy=-2.5050, facing_angle_deg= 90.0),
+
     # Tag 0 — back_wall.  heading=0 rad → faces +X (0°)
-    0: tag_pose(dx=-0.9750, dy=0.9800, facing_angle_deg=0.0),
+    0: tag_pose(dx=-0.9750, dy= 0.9800, facing_angle_deg=  0.0),
 }
 
 
@@ -151,10 +158,10 @@ TAG_WORLD_POSES = {
 # Must also match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in include/arm_drive.h
 # ===========================================================================
 
-MIN_LIFT_RAD = -3.0  # encoder pos when fully lowered  (TUNING: 0.0 ✅ — TODO update)
-MAX_LIFT_RAD = 3.0  # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO update)
-MIN_GRIP_RAD = 0  # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
-MAX_GRIP_RAD = -1.68  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
+MIN_LIFT_RAD = 0 # encoder pos when fully lowered  (TUNING: 0.0 ✅ — TODO update)
+MAX_LIFT_RAD =  3.5 # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO update)
+MIN_GRIP_RAD = 0   # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
+MAX_GRIP_RAD = 1.85  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
 
 
 # ===========================================================================
@@ -162,14 +169,14 @@ MAX_GRIP_RAD = -1.68  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TOD
 # TUNING.md reference: "2. Arm Pickup Sequence Setpoints"
 # ===========================================================================
 
-ARM_LOWER_LIFT = -2.5  # lift position for reaching the tray [rad]
-ARM_GRIP_CLOSE = 0.0  # gripper closed position [rad]
-ARM_CARRY_LIFT = 1.5  # lift position while carrying [rad]
-ARM_GRIP_OPEN = -1.68  # gripper open position for release [rad]
+ARM_LOWER_LIFT   = -2.5   # lift position for reaching the tray [rad]
+ARM_GRIP_CLOSE   =  0.0   # gripper closed position [rad]
+ARM_CARRY_LIFT   =  1.5   # lift position while carrying [rad]
+ARM_GRIP_OPEN    =  -1.68   # gripper open position for release [rad]
 
-ARM_LOWER_TIME_S = 0.1  # wait after sending lower command [s]
-ARM_GRIP_TIME_S = 0.1  # wait after sending grip command [s]
-ARM_LIFT_TIME_S = 0.1  # wait after lifting [s]
+ARM_LOWER_TIME_S =  0.1   # wait after sending lower command [s]
+ARM_GRIP_TIME_S  =  0.1   # wait after sending grip command [s]
+ARM_LIFT_TIME_S  =  0.1   # wait after lifting [s]
 
 
 # ===========================================================================
@@ -177,11 +184,11 @@ ARM_LIFT_TIME_S = 0.1  # wait after lifting [s]
 # TUNING.md reference: "5. Waypoint Navigation Gains"
 # ===========================================================================
 
-KP_LIN = 0.35  # forward gain   (dist error → ly)
-KP_STRAFE = 0.25  # strafe gain    (lateral error → lx)
-KP_ANG = 0.70  # angular gain   (heading error → yaw)
-WAYPOINT_REACHED_M = 0.10  # distance threshold to mark waypoint reached [m]
-HEADING_REACHED_RAD = 0.08  # heading tolerance for final orientation [rad] (~5°)
+KP_LIN              = 0.35   # forward gain   (dist error → ly)
+KP_STRAFE           = 0.25   # strafe gain    (lateral error → lx)
+KP_ANG              = 0.70   # angular gain   (heading error → yaw)
+WAYPOINT_REACHED_M  = 0.10   # distance threshold to mark waypoint reached [m]
+HEADING_REACHED_RAD = 0.08   # heading tolerance for final orientation [rad] (~5°)
 
 
 # ===========================================================================
@@ -190,24 +197,24 @@ HEADING_REACHED_RAD = 0.08  # heading tolerance for final orientation [rad] (~5�
 # ===========================================================================
 
 # 6.1 Process noise
-SIGMA_XY = 0.05  # translational noise density [m/s]
-SIGMA_THETA = 0.02  # rotational noise density [rad/s]
+SIGMA_XY    = 0.05   # translational noise density [m/s]
+SIGMA_THETA = 0.02   # rotational noise density [rad/s]
 
 # 6.2 IMU measurement noise
-SIGMA_IMU_YAW = 0.035  # BNO08x heading noise [rad]
+SIGMA_IMU_YAW = 0.035   # BNO08x heading noise [rad]
 
 # 6.3 AprilTag measurement noise (for 1 tag; scales by 1/√n_tags)
-SIGMA_TAG_XY = 0.03  # per-axis position noise [m]
-SIGMA_TAG_YAW = 0.04  # heading noise [rad]
+SIGMA_TAG_XY  = 0.03    # per-axis position noise [m]
+SIGMA_TAG_YAW = 0.04    # heading noise [rad]
 
 # 6.4 Gating thresholds — Mahalanobis
-MAHAL_THRESH_IMU = 3.841  # chi²(1, 0.95) — IMU yaw gate
-MAHAL_THRESH_TAG = 7.815  # chi²(3, 0.95) — AprilTag pose gate
+MAHAL_THRESH_IMU = 3.841   # chi²(1, 0.95) — IMU yaw gate
+MAHAL_THRESH_TAG = 7.815   # chi²(3, 0.95) — AprilTag pose gate
 
 # 6.4 Gating thresholds — Euclidean
-EUCLID_THRESH_IMU_RAD = 0.50  # max acceptable |yaw innovation| [rad]
-EUCLID_THRESH_TAG_POS_M = 0.50  # max acceptable sqrt(dx²+dy²) [m]
-EUCLID_THRESH_TAG_YAW_RAD = 0.40  # max acceptable |heading innovation| [rad]
+EUCLID_THRESH_IMU_RAD     = 0.50   # max acceptable |yaw innovation| [rad]
+EUCLID_THRESH_TAG_POS_M   = 0.50   # max acceptable sqrt(dx²+dy²) [m]
+EUCLID_THRESH_TAG_YAW_RAD = 0.40   # max acceptable |heading innovation| [rad]
 
 # 6.5 Motor sign convention  [FrLft, BkLft, FrRgt, BkRgt]
 # Flip individual elements if odometry drifts in a consistent direction.
@@ -219,27 +226,27 @@ MOTOR_SIGNS = np.array([1.0, 1.0, 1.0, 1.0])
 # TUNING.md reference: "7. Person Detection Thresholds"
 # ===========================================================================
 
-PERSON_CONF = 0.50  # YOLO minimum confidence
-SLOW_DIST_M = 2.0  # enter SLOW zone if person within this distance [m]
-STOP_DIST_M = 0.8  # enter STOP zone if person within this distance [m]
-SLOW_BBOX_FRAC = 0.10  # fallback: SLOW if person bbox > 10% of frame area
-STOP_BBOX_FRAC = 0.25  # fallback: STOP if person bbox > 25% of frame area
+PERSON_CONF    = 0.50   # YOLO minimum confidence
+SLOW_DIST_M    = 2.0    # enter SLOW zone if person within this distance [m]
+STOP_DIST_M    = 0.8    # enter STOP zone if person within this distance [m]
+SLOW_BBOX_FRAC = 0.10   # fallback: SLOW if person bbox > 10% of frame area
+STOP_BBOX_FRAC = 0.25   # fallback: STOP if person bbox > 25% of frame area
 
 
 # ===========================================================================
 # Section 8 — Camera Devices
 # ===========================================================================
 
-COLOR_CAMERA_DEVICE = "/dev/video0"  # RGB camera (AprilTags / color blob)
-DEPTH_CAMERA_DEVICE = "/dev/video6"  # Depth / secondary RGB camera
+COLOR_CAMERA_DEVICE = "/dev/video0"    # RGB camera (AprilTags / color blob)
+DEPTH_CAMERA_DEVICE = "/dev/video6"   # Depth / secondary RGB camera
 
 
 # ===========================================================================
 # Section 9 — Camera Calibration (chessboard tool)
 # ===========================================================================
 
-CALIB_CHESSBOARD_SIZE = (8, 6)  # interior corner count (cols, rows)
-CALIB_SQUARE_SIZE_M = 0.068  # physical square side length [m]
+CALIB_CHESSBOARD_SIZE = (8, 6)   # interior corner count (cols, rows)
+CALIB_SQUARE_SIZE_M   = 0.068    # physical square side length [m]
 
 
 # ===========================================================================
@@ -249,39 +256,39 @@ CALIB_SQUARE_SIZE_M = 0.068  # physical square side length [m]
 # HSV color ranges for each tracked object class: (lower_hsv, upper_hsv)
 OBJECT_COLORS = {
     "cup_red": (
-        np.array([0, 120, 70]),
-        np.array([10, 255, 255]),
+        np.array([0,   120,  70]),
+        np.array([10,  255, 255]),
     ),
     "cup_blue": (
-        np.array([100, 100, 50]),
+        np.array([100, 100,  50]),
         np.array([130, 255, 255]),
     ),
     "bottle": (
-        np.array([35, 50, 50]),
-        np.array([85, 255, 255]),
+        np.array([35,  50,   50]),
+        np.array([85,  255, 255]),
     ),
     "bowl": (
-        np.array([15, 100, 80]),
-        np.array([35, 255, 255]),
+        np.array([15,  100,  80]),
+        np.array([35,  255, 255]),
     ),
     "plate": (
-        np.array([0, 0, 180]),
-        np.array([180, 40, 255]),
+        np.array([0,   0,   180]),
+        np.array([180, 40,  255]),
     ),
     "tray": (
-        np.array([0, 0, 50]),
-        np.array([180, 40, 180]),
+        np.array([0,   0,    50]),
+        np.array([180, 40,  180]),
     ),
 }
 
 # Display colors (BGR) per object class — used in overlay annotations
 DISPLAY_COLORS = {
-    "cup_red": (0, 0, 220),
-    "cup_blue": (220, 80, 0),
-    "bottle": (0, 200, 50),
-    "bowl": (0, 180, 255),
-    "plate": (200, 200, 200),
-    "tray": (120, 60, 0),
+    "cup_red":  (0,   0,   220),
+    "cup_blue": (220, 80,   0),
+    "bottle":   (0,   200,  50),
+    "bowl":     (0,   180, 255),
+    "plate":    (200, 200, 200),
+    "tray":     (120,  60,   0),
 }
 
 # Ordered list of object class labels (matches OBJECT_COLORS keys)
@@ -291,11 +298,11 @@ OBJECT_LABELS = list(OBJECT_COLORS.keys())
 MIN_BLOB_AREA = 500
 
 # Table / world-frame geometry [mm]
-TABLE_WIDTH_MM = 910  # full width  (±455 mm in X)
-TABLE_DEPTH_MM = 540  # full depth  (0 → 540 mm in Y)
-CAM_HEIGHT_MM = 1230  # camera height above table surface
-CAM_WORLD_X_MM = 0  # camera principal axis X offset from table centre
-CAM_WORLD_Y_MM = 425  # camera principal axis Y position along table depth
+TABLE_WIDTH_MM  = 910    # full width  (±455 mm in X)
+TABLE_DEPTH_MM  = 540    # full depth  (0 → 540 mm in Y)
+CAM_HEIGHT_MM   = 1230   # camera height above table surface
+CAM_WORLD_X_MM  =   0    # camera principal axis X offset from table centre
+CAM_WORLD_Y_MM  = 425    # camera principal axis Y position along table depth
 
 
 # ===========================================================================
@@ -303,7 +310,7 @@ CAM_WORLD_Y_MM = 425  # camera principal axis Y position along table depth
 # ===========================================================================
 
 # Bright-tray HSV mask (highly saturated colors)
-BRIGHT_TRAY_LOWER_HSV = np.array([0, 150, 80], dtype=np.uint8)
+BRIGHT_TRAY_LOWER_HSV = np.array([ 0,  150,  80], dtype=np.uint8)
 BRIGHT_TRAY_UPPER_HSV = np.array([180, 255, 255], dtype=np.uint8)
 
 # Labels from OBJECT_COLORS that are treated as trays
@@ -319,11 +326,11 @@ TARGET_PICKUP_DIST_MM = 400.0
 CENTERING_DEAD_ZONE_PX = 20
 
 # Proportional gains: pixel/mm error → normalized drive command
-KP_APPROACH_LATERAL = 0.0015  # pixel error  → lx  (strafe)
-KP_APPROACH_YAW = 0.0008  # pixel error  → yaw (turn)
-KP_APPROACH_FORWARD = 0.0008  # mm dist error → ly  (forward)
+KP_APPROACH_LATERAL = 0.0015   # pixel error  → lx  (strafe)
+KP_APPROACH_YAW     = 0.0008   # pixel error  → yaw (turn)
+KP_APPROACH_FORWARD = 0.0008   # mm dist error → ly  (forward)
 
 # Max approach command magnitudes
-MAX_APPROACH_LX = 0.40
-MAX_APPROACH_LY = 0.40
+MAX_APPROACH_LX  = 0.40
+MAX_APPROACH_LY  = 0.40
 MAX_APPROACH_YAW = 0.30
