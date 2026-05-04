@@ -53,23 +53,25 @@ try:
 except ImportError:
     _DETECT_AVAILABLE = False
 
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+from Jetson.config import (
+    DEPTH_CAMERA_DEVICE, OBJECT_LABELS, DISPLAY_COLORS,
+    TABLE_WIDTH_MM, TABLE_DEPTH_MM,
+)
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 CALIB_FILE  = Path(__file__).parent / "camera_calibration_live.npz"
 OUTPUT_JSON = Path(__file__).parent / "color_ranges.json"
-DEFAULT_DEVICE = "/dev/video52"
+DEFAULT_DEVICE = DEPTH_CAMERA_DEVICE  # imported from Jetson/config.py
 
-OBJECT_LABELS = ["cup_red", "cup_blue", "bottle", "bowl", "plate", "tray"]
-
-LABEL_COLORS = {
-    "cup_red":  (0,   0,   220),
-    "cup_blue": (220, 80,   0),
-    "bottle":   (0,   200,  50),
-    "bowl":     (0,   180, 255),
-    "plate":    (180, 180, 180),
-    "tray":     (100,  60,   20),
-}
+# OBJECT_LABELS imported from Jetson/config.py
+# DISPLAY_COLORS imported as LABEL_COLORS below for backwards compat
+LABEL_COLORS = DISPLAY_COLORS
 
 PANEL_W    = 330
 BTN_H      = 46
@@ -84,13 +86,13 @@ TOL_STEP    = 5
 SAMPLE_HALF = 4
 
 # Table corner calibration — 4 corners clicked clockwise from near-left.
-# Near edge = y closest to camera; Far edge = y furthest from camera.
-# World coords match TABLE_PARAMS in object_detection.py.
+# World coords derived from TABLE_WIDTH_MM / TABLE_DEPTH_MM in Jetson/config.py.
+_hw = TABLE_WIDTH_MM // 2
 CORNER_ORDER = [
-    ("Near-Left",  (-455,   0)),
-    ("Near-Right", ( 455,   0)),
-    ("Far-Right",  ( 455, 540)),
-    ("Far-Left",   (-455, 540)),
+    ("Near-Left",  (-_hw,            0)),
+    ("Near-Right", ( _hw,            0)),
+    ("Far-Right",  ( _hw, TABLE_DEPTH_MM)),
+    ("Far-Left",   (-_hw, TABLE_DEPTH_MM)),
 ]
 TABLE_CALIB_JSON = Path(__file__).parent / "table_calibration.json"
 

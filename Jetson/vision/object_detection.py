@@ -35,6 +35,17 @@ try:
 except ImportError:
     _RS_AVAILABLE = False
 
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+from Jetson.config import (
+    DEPTH_CAMERA_DEVICE,
+    OBJECT_COLORS, DISPLAY_COLORS, OBJECT_LABELS,
+    MIN_BLOB_AREA,
+    TABLE_WIDTH_MM, TABLE_DEPTH_MM, CAM_HEIGHT_MM, CAM_WORLD_X_MM, CAM_WORLD_Y_MM,
+)
+
 # ---------------------------------------------------------------------------
 # Camera / calibration
 # ---------------------------------------------------------------------------
@@ -42,71 +53,13 @@ CALIB_FILE        = Path(__file__).parent / "camera_calibration_live.npz"
 COLOR_JSON        = Path(__file__).parent / "color_ranges.json"
 TABLE_CALIB_JSON  = Path(__file__).parent / "table_calibration.json"
 
-# Camera device used when capturing a new frame
-DEFAULT_DEVICE = "/dev/video52"
+# Camera device used when capturing a new frame — imported from Jetson/config.py
+DEFAULT_DEVICE = DEPTH_CAMERA_DEVICE
 
 # ---------------------------------------------------------------------------
-# HSV color ranges for each object class
-# Each entry: (lower_hsv, upper_hsv)
-# Tune these ranges to match the actual items in your scene.
+# HSV color ranges — imported from Jetson/config.py (OBJECT_COLORS)
+# Display colors — imported from Jetson/config.py (DISPLAY_COLORS)
 # ---------------------------------------------------------------------------
-OBJECT_COLORS = {
-    "cup_red": (
-        np.array([0,   120,  70]),
-        np.array([10,  255, 255]),
-    ),
-    "cup_blue": (
-        np.array([100, 100,  50]),
-        np.array([130, 255, 255]),
-    ),
-    "bottle": (
-        np.array([35,  50,   50]),
-        np.array([85,  255, 255]),
-    ),
-    "bowl": (
-        np.array([15,  100,  80]),
-        np.array([35,  255, 255]),
-    ),
-    "plate": (
-        np.array([0,   0,   180]),
-        np.array([180, 40,  255]),
-    ),
-    "tray": (
-        np.array([0,   0,    50]),
-        np.array([180, 40,  180]),
-    ),
-}
-
-# Display color (BGR) per object class
-DISPLAY_COLORS = {
-    "cup_red":  (0,   0,   220),
-    "cup_blue": (220, 80,   0),
-    "bottle":   (0,   200,  50),
-    "bowl":     (0,   180, 255),
-    "plate":    (200, 200, 200),
-    "tray":     (120,  60,   0),
-}
-
-# Minimum blob area in pixels — blobs smaller than this are ignored
-MIN_BLOB_AREA = 500
-
-# ---------------------------------------------------------------------------
-# Table / world-frame parameters
-# Edit these to match your physical setup.
-#
-# World-frame origin: centre of the NEAR (bottom) edge of the table.
-#   X : -455 mm (left)  →  0 (centre-line)  →  +455 mm (right)
-#   Y :    0 mm (near edge)  →  540 mm (far edge)
-#   Z :    0 mm (table surface)
-# ---------------------------------------------------------------------------
-TABLE_WIDTH_MM   = 910    # full width  (±455 mm in X)
-TABLE_DEPTH_MM   = 540    # full depth  (0 → 540 mm in Y)
-CAM_HEIGHT_MM    = 1230   # camera height above table surface (mm)
-
-# World-frame (X, Y) position of the camera's principal axis projected down
-# onto the table.  Adjust if the camera is not centred over the table.
-CAM_WORLD_X_MM   =   0   # 0 = camera on the table centre-line
-CAM_WORLD_Y_MM   =  425  # 270 = camera centred along table depth
 
 
 def load_color_ranges() -> dict:

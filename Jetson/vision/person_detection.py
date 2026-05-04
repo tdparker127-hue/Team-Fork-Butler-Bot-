@@ -36,25 +36,20 @@ except ImportError:
     _YOLO_AVAILABLE = False
     print("[WARN] ultralytics not installed — PersonDetector will return CLEAR always.")
 
+from Jetson.config import (
+    PERSON_CONF, SLOW_DIST_M, STOP_DIST_M, SLOW_BBOX_FRAC, STOP_BBOX_FRAC,
+)
+
 # ===========================================================================
-# Tunable parameters
+# Tunable parameters — imported from Jetson/config.py
 # ===========================================================================
 
 # --- Model ------------------------------------------------------------------
 YOLO_MODEL       = "yolov8n.pt"   # nano model — fast enough on Jetson
 YOLO_DEVICE      = "cpu"          # "cuda:0" if GPU available on Jetson
 
-# --- Detection confidence ---------------------------------------------------
-PERSON_CONF      = 0.50           # minimum confidence to count as a person
-
-# --- Distance thresholds (depth camera) ------------------------------------
-SLOW_DIST_M      = 2.0            # enter SLOW zone if person closer than this
-STOP_DIST_M      = 0.8            # enter STOP zone if person closer than this
-
-# --- Bounding-box area fraction (fallback when no depth) -------------------
-# Fraction of image area the largest person bbox occupies.
-SLOW_BBOX_FRAC   = 0.10           # ~10% → person is nearby
-STOP_BBOX_FRAC   = 0.25           # ~25% → person is very close
+# --- Detection confidence, distances, bbox fractions -----------------------
+# PERSON_CONF, SLOW_DIST_M, STOP_DIST_M, SLOW_BBOX_FRAC, STOP_BBOX_FRAC
 
 # --- Depth sampling ---------------------------------------------------------
 DEPTH_PATCH_HALF = 3              # half-size of the patch around bbox centre

@@ -79,17 +79,25 @@ try:
 except ImportError:
     _RS_AVAILABLE = False
 
+from Jetson.config import (
+    TAG_SIZE_M,
+    KP_LIN, KP_STRAFE, KP_ANG, WAYPOINT_REACHED_M, HEADING_REACHED_RAD,
+    ARM_LOWER_LIFT, ARM_GRIP_CLOSE, ARM_CARRY_LIFT, ARM_GRIP_OPEN,
+    ARM_LOWER_TIME_S, ARM_GRIP_TIME_S, ARM_LIFT_TIME_S,
+    COLOR_CAMERA_DEVICE,
+)
+
 # ===========================================================================
 # Tunable parameters
 # ===========================================================================
 
-# --- Camera device paths ---------------------------------------------------
-COLOR_CAMERA_DEVICE  = "/dev/video4"    # RGB camera (apriltags)
+# --- Camera device paths — imported from Jetson/config.py -----------------
+# COLOR_CAMERA_DEVICE: RGB camera for AprilTags
 DEPTH_CAMERA_SERIAL  = None             # None = auto-detect first RealSense
 
 # --- AprilTag detection rate -----------------------------------------------
 APRILTAG_HZ      = 5      # camera localization update rate
-TAG_SIZE_M       = 0.10   # AprilTag side length in metres
+# TAG_SIZE_M imported from Jetson/config.py
 
 # --- Person detection rate -------------------------------------------------
 PERSON_DETECT_HZ = 10
@@ -97,24 +105,12 @@ PERSON_DETECT_HZ = 10
 # --- Main control loop rate ------------------------------------------------
 CONTROL_HZ       = 20
 
-# --- Waypoint controller gains ---------------------------------------------
-KP_LIN    = 0.35    # forward gain  (dist error → ly)
-KP_STRAFE = 0.25    # strafe gain   (dist error → lx)
-KP_ANG    = 0.70    # angular gain  (heading error → yaw)
-WAYPOINT_REACHED_M   = 0.10   # distance at which a waypoint is considered reached
-HEADING_REACHED_RAD  = 0.08   # ~5° — heading tolerance for final orientation
+# --- Waypoint controller gains — imported from Jetson/config.py ------------
+# KP_LIN, KP_STRAFE, KP_ANG, WAYPOINT_REACHED_M, HEADING_REACHED_RAD
 
-# --- Arm pickup sequence ---------------------------------------------------
-# Times are in seconds; setpoints in radians (must stay within limits).
-# Adjust once you've measured your physical end-stops.
-ARM_LOWER_LIFT    = -2.5   # lift position for picking (lowered)
-ARM_GRIP_CLOSE    = -1.8   # gripper closed position
-ARM_CARRY_LIFT    =  1.5   # lift position while carrying
-ARM_GRIP_OPEN     =  1.5   # gripper open position for release
-
-ARM_LOWER_TIME_S  = 2.0    # seconds to wait after sending lower command
-ARM_GRIP_TIME_S   = 1.5    # seconds to wait after sending grip command
-ARM_LIFT_TIME_S   = 2.0    # seconds to wait after lifting
+# --- Arm pickup sequence — imported from Jetson/config.py -----------------
+# ARM_LOWER_LIFT, ARM_GRIP_CLOSE, ARM_CARRY_LIFT, ARM_GRIP_OPEN
+# ARM_LOWER_TIME_S, ARM_GRIP_TIME_S, ARM_LIFT_TIME_S
 
 # --- Gamepad button indices (must match robot_controller.py) ---------------
 BTN_START   = 11   # Start  → WAYPOINT_NAV

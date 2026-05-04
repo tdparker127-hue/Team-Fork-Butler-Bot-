@@ -44,40 +44,21 @@ from object_detection import (
     MIN_BLOB_AREA,
 )
 
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+from Jetson.config import (
+    BRIGHT_TRAY_LOWER_HSV, BRIGHT_TRAY_UPPER_HSV,
+    TRAY_LABELS, TRAY_MIN_AREA,
+    TARGET_PICKUP_DIST_MM, CENTERING_DEAD_ZONE_PX,
+    KP_APPROACH_LATERAL, KP_APPROACH_YAW, KP_APPROACH_FORWARD,
+    MAX_APPROACH_LX, MAX_APPROACH_LY, MAX_APPROACH_YAW,
+)
+
 # ===========================================================================
-# Tunable parameters
+# Tunable parameters — all imported from Jetson/config.py
 # ===========================================================================
-
-# --- Tray color definition --------------------------------------------------
-# Bright trays are highly saturated.  We use a generic high-saturation mask
-# in addition to any labels defined in color_ranges.json that contain "tray".
-# Adjust the HSV bounds if your specific tray colors differ.
-BRIGHT_TRAY_LOWER_HSV = np.array([ 0,  150,  80], dtype=np.uint8)
-BRIGHT_TRAY_UPPER_HSV = np.array([180, 255, 255], dtype=np.uint8)
-
-# Labels from OBJECT_COLORS / color_ranges.json that are treated as trays
-TRAY_LABELS = {"tray"}   # extend if needed, e.g. {"tray", "bowl"}
-
-# Minimum blob area for a tray (pixels) — larger than general MIN_BLOB_AREA
-TRAY_MIN_AREA = 1500
-
-# --- Pickup geometry --------------------------------------------------------
-# Distance from camera to the ideal pickup position (mm).
-TARGET_PICKUP_DIST_MM = 400.0
-
-# Pixel offset from image centre below which the tray is considered centred.
-CENTERING_DEAD_ZONE_PX = 20
-
-# --- Approach command scaling -----------------------------------------------
-# Proportional gains for converting errors to normalized drive commands.
-KP_APPROACH_LATERAL = 0.0015   # pixel error → lx  (strafe)
-KP_APPROACH_YAW     = 0.0008   # pixel error → yaw (turn)
-KP_APPROACH_FORWARD = 0.0008   # mm distance error → ly (forward)
-
-# Maximum approach command magnitudes (clipped to these)
-MAX_APPROACH_LX  = 0.40
-MAX_APPROACH_LY  = 0.40
-MAX_APPROACH_YAW = 0.30
 
 # --- Depth sampling ---------------------------------------------------------
 DEPTH_PATCH_HALF = 5    # half-size of patch around centroid

@@ -38,6 +38,8 @@ import serial
 import threading
 import time
 
+from Jetson.config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
+
 # ── Serial ports ──────────────────────────────────── ─────────────────────────
 DRIVE_PORT = "/dev/Drive"  # Drive serial = xx xx xx xx 86 74
 ARM_PORT = "/dev/Arm"  # arm serial = xx xx xx xx 85 04
@@ -49,12 +51,8 @@ BAUD_RATE = 115200
 DEADBAND = 0.1  # joystick dead-zone
 
 # ── Arm setpoint limits (radians) ────────────────────────────────────────────
-# These must match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in arm_drive.h.
-# TODO: measure physical end-stops and update both files.
-MIN_LIFT_RAD = -3.0
-MAX_LIFT_RAD = 3.0
-MIN_GRIP_RAD = -2.0
-MAX_GRIP_RAD = 2.0
+# Imported from Jetson/config.py — edit there.
+# Must also match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in include/arm_drive.h.
 
 # ── Arm max speeds ────────────────────────────────────────────────────────────
 # At 50 Hz loop: step_per_loop = speed / 50

@@ -43,9 +43,11 @@ if str(_repo_root) not in sys.path:
 from Jetson.vision.apriltag_pose import (
     localize_camera,
     robot_pose_from_camera,
-    TAG_WORLD_POSES,
-    TAG_FAMILY,
-    TAG_SIZE_M,
+)
+from Jetson.config import (
+    TAG_WORLD_POSES, TAG_FAMILY, TAG_SIZE_M,
+    SIGMA_TAG_XY, SIGMA_TAG_YAW,
+    COLOR_CAMERA_DEVICE,
 )
 from Jetson.localization.ekf_localizer import EKFLocalizer, GatingMethod
 
@@ -58,8 +60,8 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Configuration — edit these to match your setup
 # ---------------------------------------------------------------------------
-CAMERA_DEVICE  = "/dev/video4"   # color camera
-CALIB_FILE     = Path(__file__).parent / "Jetson/vision/camera_calibration_live.npz"
+CAMERA_DEVICE  = COLOR_CAMERA_DEVICE   # imported from Jetson/config.py
+CALIB_FILE     = Path(__file__).parent / "vision/camera_calibration_live.npz"
 
 FRAME_W = 1280
 FRAME_H =  720
@@ -69,9 +71,8 @@ DETECT_NTHREADS    = 2
 DETECT_QUAD_DEC    = 1.0   # 1.0 = full resolution; 2.0 = faster but less accurate
 DETECT_REFINE      = 1
 
-# AprilTag detector params
-SIGMA_TAG_XY  = 0.03   # [m]   — per-axis measurement noise
-SIGMA_TAG_YAW = 0.04   # [rad] — heading measurement noise
+# AprilTag detector noise params — imported from Jetson/config.py
+# SIGMA_TAG_XY, SIGMA_TAG_YAW
 
 # EKF gating — switch to GatingMethod.EUCLIDEAN if you prefer fixed thresholds
 GATING = GatingMethod.MAHALANOBIS
