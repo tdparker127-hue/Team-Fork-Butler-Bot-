@@ -38,7 +38,7 @@ import serial
 import threading
 import time
 
-from config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
+from Jetson.config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
 
 # ── Serial ports ──────────────────────────────────── ─────────────────────────
 DRIVE_PORT = "/dev/ttyACM0"  #Drive serial = xx xx xx xx 86 74
