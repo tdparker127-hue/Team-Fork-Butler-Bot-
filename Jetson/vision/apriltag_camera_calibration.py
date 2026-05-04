@@ -1,17 +1,20 @@
+import sys
+from pathlib import Path
 import cv2
 import numpy as np
 
-def main():
-    # --- Adjustable Parameters ---
-    # The number of *interior* corners in your chessboard pattern.
-    # For a pattern of 9 squares by 6 squares, there are 8 x 5 interior corners,
-    # but commonly you'll see "9,6" meaning a pattern with 9 corners along width 
-    # and 6 along height. Adjust if needed.
-    chessboard_size = (8, 6)
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
 
-    # The real size of each chessboard square in meters (or any arbitrary unit).
-    # Adjust if your printed chessboard squares have a known size, e.g. 24 mm -> 0.024 m
-    square_size = 0.068
+from Jetson.config import (
+    CALIB_CHESSBOARD_SIZE, CALIB_SQUARE_SIZE_M, DEPTH_CAMERA_DEVICE,
+)
+
+def main():
+    # Parameters imported from Jetson/config.py
+    chessboard_size = CALIB_CHESSBOARD_SIZE
+    square_size     = CALIB_SQUARE_SIZE_M
     
     # Define criteria for corner sub-pixel refinement
     # (Stop after max 30 iterations or when moving by less than 0.001)
@@ -30,9 +33,9 @@ def main():
     objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
     objp *= square_size
 
-    # Open the default camera (device index 0)
+    # Open the default camera (device from config)
     # cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap = cv2.VideoCapture(52) # For MacOS or Linux, you may need to remove the cv2.CAP_DSHOW flag
+    cap = cv2.VideoCapture(DEPTH_CAMERA_DEVICE) # For MacOS or Linux, you may need to remove the cv2.CAP_DSHOW flag
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)

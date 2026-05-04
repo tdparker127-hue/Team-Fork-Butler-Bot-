@@ -41,15 +41,20 @@ void loop() {
         updatePIDs();
     }
 
-    // Send IMU telemetry back to Jetson at 20Hz
-    // Format: "IMU:roll:X;pitch:X;yaw:X;rollRate:X;pitchRate:X;yawRate:X;\n"
-    // The "IMU:" prefix lets the Jetson distinguish telemetry from debug prints.
+    // Send IMU + encoder telemetry back to Jetson at 20Hz
+    // IMU format:  "IMU:roll:X;pitch:X;yaw:X;rollRate:X;pitchRate:X;yawRate:X;\n"
+    // ENC format:  "ENC:fl:X;bl:X;fr:X;br:X;\n"  (rad/s, FrLft BkLft FrRgt BkRgt)
+    // The prefixes let the Jetson distinguish telemetry from debug prints.
     EVERY_N_MILLIS(50) {
         EulerAngles euler = imu.getEulerAngles();
         GyroReadings gyro  = imu.getGyroReadings();
-        // Serial.printf("IMU:roll:%.4f;pitch:%.4f;yaw:%.4f;rollRate:%.4f;pitchRate:%.4f;yawRate:%.4f;\n",
-        //               euler.roll, euler.pitch, euler.yaw,
-        //               gyro.rollRate, gyro.pitchRate, gyro.yawRate);
+        Serial.printf("IMU:roll:%.4f;pitch:%.4f;yaw:%.4f;rollRate:%.4f;pitchRate:%.4f;yawRate:%.4f;\n",
+                      euler.roll, euler.pitch, euler.yaw,
+                      gyro.rollRate, gyro.pitchRate, gyro.yawRate);
+        float vels[NUM_MOTORS];
+        getEncoderVelocities(vels);
+        Serial.printf("ENC:fl:%.4f;bl:%.4f;fr:%.4f;br:%.4f;\n",
+                      vels[0], vels[1], vels[2], vels[3]);
     }
 
 #ifndef JETSON_SERIAL

@@ -38,43 +38,41 @@ import serial
 import threading
 import time
 
+from Jetson.config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
+
 # ── Serial ports ──────────────────────────────────── ─────────────────────────
-DRIVE_PORT = "/dev/Drive" #Drive serial = xx xx xx xx 86 74
-ARM_PORT   = "/dev/Arm" #arm serial = xx xx xx xx 85 04
+DRIVE_PORT = "/dev/ttyACM0"  #Drive serial = xx xx xx xx 86 74
+ARM_PORT   = "/dev/ttyACM1"  #arm serial = xx xx xx xx 85 04
 BAUD_RATE  = 115200
 
-# ── Kinematic constants ───────────────────────────────────────────────────────
+# ── Kinematic constants ─────────`──────────────────────────────────────────────
 # MAX_FORWARD / MAX_TURN scaling lives on the ESP32 (robot_drive.h).
 # The Jetson only applies a deadband and sends normalized [-1, 1] values.
-DEADBAND    = 0.1   # joystick dead-zone
+DEADBAND = 0.1  # joystick dead-zone
 
 # ── Arm setpoint limits (radians) ────────────────────────────────────────────
-# These must match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in arm_drive.h.
-# TODO: measure physical end-stops and update both files.
-MIN_LIFT_RAD = -3.0
-MAX_LIFT_RAD =  3.0
-MIN_GRIP_RAD = -2.0
-MAX_GRIP_RAD =  2.0
+# Imported from Jetson/config.py — edit there.
+# Must also match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in include/arm_drive.h.
 
 # ── Arm max speeds ────────────────────────────────────────────────────────────
 # At 50 Hz loop: step_per_loop = speed / 50
-MAX_LIFT_SPEED = 0.5   # rad/s — fixed rate when bumper held
-MAX_GRIP_SPEED = 1.5   # rad/s — at full trigger press (proportional to depth)
+MAX_LIFT_SPEED = 0.5  # rad/s — fixed rate when bumper held
+MAX_GRIP_SPEED = 1.5  # rad/s — at full trigger press (proportional to depth)
 
 # ── Xbox One BT axis / button indices (pygame on Linux) ─────────────────────
 # Verified against Xbox One controller connected via Bluetooth.
 # If your controller enumerates differently, run pygame's joystick example
 # to print live axis/button indices.
-AXIS_LX = 0   # Left stick X  → strafe
-AXIS_LY = 1   # Left stick Y  → forward (up = negative, we invert below)
-AXIS_RX = 2   # Right stick X → yaw rotation
-AXIS_RY = 3   # Right stick Y → unused
-AXIS_LT = 4   # Left trigger  → grip close (rest=-1, full=+1)
-AXIS_RT = 5   # Right trigger → grip open  (rest=-1, full=+1)
+AXIS_LX = 0  # Left stick X  → strafe
+AXIS_LY = 1  # Left stick Y  → forward (up = negative, we invert below)
+AXIS_RX = 2  # Right stick X → yaw rotation
+AXIS_RY = 3  # Right stick Y → unused
+AXIS_LT = 4  # Left trigger  → grip close (rest=-1, full=+1)
+AXIS_RT = 5  # Right trigger → grip open  (rest=-1, full=+1)
 # NOTE: On some Xbox One BT configurations, LT=axis 2 and RX=axis 3.
 # If drive yaw is wrong, try swapping AXIS_RX=3 and AXIS_LT=2.
-BTN_LB  = 6   # Left bumper   → lift down
-BTN_RB  = 7   # Right bumper  → lift up
+BTN_LB = 6  # Left bumper   → lift down
+BTN_RB = 7  # Right bumper  → lift up
 # NOTE: If the Y face button (standard index 3) is triggering lift instead
 # of the bumper, try BTN_LB=3 / BTN_RB=4.
 
@@ -85,9 +83,12 @@ def _trigger_depth(raw: float) -> float:
 
 
 def step_arm_setpoints(
-    lift_sp: float, grip_sp: float,
-    lt_raw: float, rt_raw: float,
-    lb_held: bool, rb_held: bool,
+    lift_sp: float,
+    grip_sp: float,
+    lt_raw: float,
+    rt_raw: float,
+    lb_held: bool,
+    rb_held: bool,
     dt: float,
 ) -> tuple:
     """
@@ -123,10 +124,11 @@ def compute_drive_command(lx: float, ly: float, rx: float) -> str:
       yaw = rotation intent,   normalized [-1, 1] (right = +1)
     Deadband is applied here so the ESP receives clean zeros.
     """
-    lx_out  =  _scale(lx)
-    ly_out  = -_scale(ly)   # invert: up stick (negative axis) → positive forward
-    yaw_out =  _scale(rx)
+    lx_out = _scale(lx)
+    ly_out = -_scale(ly)  # invert: up stick (negative axis) → positive forward
+    yaw_out = _scale(rx)
     return f"lx:{lx_out:.3f};ly:{ly_out:.3f};yaw:{yaw_out:.3f};\n"
+
 
 def _scale(value: float, deadband: float = DEADBAND) -> float:
     """Apply deadband and return the raw value unchanged otherwise."""
@@ -136,11 +138,28 @@ def _scale(value: float, deadband: float = DEADBAND) -> float:
 # ── IMU state shared between reader threads and main loop ────────────────────
 _imu_lock = threading.Lock()
 _imu_data = {
-    "drive": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0,
-              "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0},
-    "arm":   {"roll": 0.0, "pitch": 0.0, "yaw": 0.0,
-              "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0},
+    "drive": {
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "rollRate": 0.0,
+        "pitchRate": 0.0,
+        "yawRate": 0.0,
+    },
+    "arm": {
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "rollRate": 0.0,
+        "pitchRate": 0.0,
+        "yawRate": 0.0,
+    },
 }
+
+# ── Encoder velocity state (drive ESP only) ───────────────────────────────────
+# Units: rad/s.  Keys match ENC serial format: fl, bl, fr, br.
+_enc_lock = threading.Lock()
+_enc_data = {"fl": 0.0, "bl": 0.0, "fr": 0.0, "br": 0.0, "timestamp": 0.0}
 
 
 def _parse_imu_line(line: str) -> dict | None:
@@ -163,6 +182,26 @@ def _parse_imu_line(line: str) -> dict | None:
     return result if result else None
 
 
+def _parse_enc_line(line: str) -> dict | None:
+    """
+    Parse "ENC:fl:X;bl:X;fr:X;br:X;"  (wheel velocities in rad/s)
+    Returns a dict with keys fl, bl, fr, br as floats, or None on failure.
+    """
+    if not line.startswith("ENC:"):
+        return None
+    result = {}
+    try:
+        payload = line[4:]  # strip "ENC:"
+        for token in payload.split(";"):
+            if not token:
+                continue
+            key, _, val = token.partition(":")
+            result[key] = float(val)
+    except (ValueError, AttributeError):
+        return None
+    return result if len(result) == 4 else None
+
+
 def _serial_reader(ser: serial.Serial, label: str) -> None:
     """Background thread: continuously reads lines from one ESP serial port."""
     while True:
@@ -175,8 +214,15 @@ def _serial_reader(ser: serial.Serial, label: str) -> None:
             if imu:
                 with _imu_lock:
                     _imu_data[label].update(imu)
-            elif line.startswith("DBG:"):
-                #pass  # ignore debug telemetry silently
+                continue
+            enc = _parse_enc_line(line) if label == "drive" else None
+            if enc:
+                with _enc_lock:
+                    _enc_data.update(enc)
+                    _enc_data["timestamp"] = time.monotonic()
+                continue
+            if line.startswith("DBG:"):
+                # pass  # ignore debug telemetry silently
                 print(f"[{label}] {line}")
             else:
                 print(f"[{label}] {line}")
@@ -192,7 +238,41 @@ def get_imu(label: str) -> dict:
         return dict(_imu_data[label])
 
 
+def get_enc() -> dict:
+    """Return a snapshot of the latest wheel encoder velocities (rad/s).
+
+    Keys: fl, bl, fr, br (same order as ENC serial output / updateSetpoints).
+    'timestamp' is the time.monotonic() value when the last packet arrived.
+    Returns zeros if no packet has been received yet.
+    """
+    with _enc_lock:
+        return dict(_enc_data)
+
+
+# ── Drive serial handle exposed for external callers (mission_controller) ────
+_drive_ser: serial.Serial | None = None
+_arm_ser: serial.Serial | None = None
+
+
+def send_drive(lx: float, ly: float, yaw: float) -> None:
+    """Send a normalized drive command to the drive ESP32.
+
+    lx/ly/yaw must be in [-1, 1].  Deadband is NOT applied here so that
+    callers like the waypoint controller can send very small corrections.
+    Use compute_drive_command() for joystick input (which applies deadband).
+    """
+    if _drive_ser is not None and _drive_ser.is_open:
+        _drive_ser.write(f"lx:{lx:.3f};ly:{ly:.3f};yaw:{yaw:.3f};\n".encode())
+
+
+def send_arm(lift_sp: float, grip_sp: float) -> None:
+    """Send absolute arm position setpoints (radians) to the arm ESP32."""
+    if _arm_ser is not None and _arm_ser.is_open:
+        _arm_ser.write(f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n".encode())
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     # Init pygame joystick
@@ -227,11 +307,16 @@ def main() -> None:
     drive_ser.reset_input_buffer()
     arm_ser.reset_input_buffer()
 
+    # Expose handles so send_drive() / send_arm() work from other modules
+    global _drive_ser, _arm_ser
+    _drive_ser = drive_ser
+    _arm_ser = arm_ser
+
     # Start background reader threads
-    threading.Thread(target=_serial_reader, args=(drive_ser, "drive"),
-                     daemon=True).start()
-    threading.Thread(target=_serial_reader, args=(arm_ser, "arm"),
-                     daemon=True).start()
+    threading.Thread(
+        target=_serial_reader, args=(drive_ser, "drive"), daemon=True
+    ).start()
+    threading.Thread(target=_serial_reader, args=(arm_ser, "arm"), daemon=True).start()
 
     print("Running at 50 Hz. Ctrl-C to stop.")
 
@@ -249,13 +334,25 @@ def main() -> None:
             pygame.event.pump()
 
             # Read axes — safe even if controller disconnects mid-run
-            lx  = joystick.get_axis(AXIS_LX)
-            ly  = joystick.get_axis(AXIS_LY)
-            rx  = joystick.get_axis(AXIS_RX)
-            lt  = joystick.get_axis(AXIS_LT) if joystick.get_numaxes() > AXIS_LT else -1.0
-            rt  = joystick.get_axis(AXIS_RT) if joystick.get_numaxes() > AXIS_RT else -1.0
-            lb  = bool(joystick.get_button(BTN_LB)) if joystick.get_numbuttons() > BTN_LB else False
-            rb  = bool(joystick.get_button(BTN_RB)) if joystick.get_numbuttons() > BTN_RB else False
+            lx = joystick.get_axis(AXIS_LX)
+            ly = joystick.get_axis(AXIS_LY)
+            rx = joystick.get_axis(AXIS_RX)
+            lt = (
+                joystick.get_axis(AXIS_LT) if joystick.get_numaxes() > AXIS_LT else -1.0
+            )
+            rt = (
+                joystick.get_axis(AXIS_RT) if joystick.get_numaxes() > AXIS_RT else -1.0
+            )
+            lb = (
+                bool(joystick.get_button(BTN_LB))
+                if joystick.get_numbuttons() > BTN_LB
+                else False
+            )
+            rb = (
+                bool(joystick.get_button(BTN_RB))
+                if joystick.get_numbuttons() > BTN_RB
+                else False
+            )
 
             drive_cmd = compute_drive_command(lx, ly, rx)
 
@@ -273,15 +370,18 @@ def main() -> None:
                 imu_d = get_imu("drive")
                 imu_a = get_imu("arm")
                 # Parse lx/ly/yaw back out of the command string for display
-                parts = {t.split(":")[0]: float(t.split(":")[1])
-                         for t in drive_cmd.strip().rstrip(";").split(";") if ":" in t}
+                parts = {
+                    t.split(":")[0]: float(t.split(":")[1])
+                    for t in drive_cmd.strip().rstrip(";").split(";")
+                    if ":" in t
+                }
                 print(
                     f"lx={parts.get('lx', 0):+.2f}  "
                     f"ly={parts.get('ly', 0):+.2f}  "
                     f"yaw={parts.get('yaw', 0):+.2f}  "
                     f"| lift={lift_sp:+.3f}  grip={grip_sp:+.3f}  "
                     f"| DriveIMU yaw={imu_d['yaw']:.2f}  ArmIMU yaw={imu_a['yaw']:.2f}",
-                    end="\r"
+                    end="\r",
                 )
 
             elapsed = time.monotonic() - t0
