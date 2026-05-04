@@ -38,7 +38,7 @@ import serial
 import threading
 import time
 
-from config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
+from Jetson.config import MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD
 
 # ── Serial ports ──────────────────────────────────── ─────────────────────────
 DRIVE_PORT = "/dev/ttyACM0"  #Drive serial = xx xx xx xx 86 74
@@ -231,8 +231,9 @@ def _serial_reader(ser: serial.Serial, label: str) -> None:
                     _enc_data["timestamp"] = time.monotonic()
                 continue
             if line.startswith("DBG:"):
-                # pass  # ignore debug telemetry silently
-                print(f"[{label}] {line}")
+                pass  # ignore debug telemetry silently
+            elif line in ("Failed", "Sent"):
+                pass  # ESP-NOW wireless noise — suppress when no controller paired
             else:
                 print(f"[{label}] {line}")
         except serial.SerialException:

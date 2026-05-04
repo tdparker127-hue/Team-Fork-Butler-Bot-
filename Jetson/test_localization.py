@@ -59,7 +59,14 @@ from Jetson.config import (
     COLOR_CAMERA_DEVICE, DEPTH_CAMERA_DEVICE,
 )
 from Jetson.localization.ekf_localizer import EKFLocalizer, GatingMethod
+from Jetson.main import robot_controller as rc
 import enum
+
+try:
+    import pygame
+    _pygame_available = True
+except ImportError:
+    _pygame_available = False
 
 
 class TestMode(enum.Enum):
@@ -103,7 +110,7 @@ DETECT_REFINE      = 1
 GATING = GatingMethod.MAHALANOBIS
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
-TEST_MODE = TestMode.VISION_ONLY
+TEST_MODE = TestMode.FULL
 #   Options:
 #     TestMode.VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
 #     TestMode.IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.
@@ -112,84 +119,18 @@ TEST_MODE = TestMode.VISION_ONLY
 
 DRIVE_PORT = "/dev/ttyACM0"   # drive ESP32 serial port
 BAUD_RATE  = 115200
+
+# Set True to also poll an Xbox controller and send drive commands.
+# When True, do NOT run robot_controller.py simultaneously — they would
+# fight over the serial port and cause the disconnect error.
+ENABLE_DRIVE = True
 # ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
-# Serial telemetry state — populated by a background reader thread when the
-# drive ESP32 is connected; blocks start at zero so the overlay always draws.
+# Serial telemetry is owned by robot_controller (rc) imported above.
+# rc.get_imu("drive") and rc.get_enc() are used throughout.
 # ---------------------------------------------------------------------------
-_imu_lock = threading.Lock()
-_imu_data: dict = {
-    "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
-    "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0,
-}
-_enc_lock = threading.Lock()
-_enc_data: dict = {"fl": 0.0, "bl": 0.0, "fr": 0.0, "br": 0.0}
-# NOTE: encoder data is display-only here.  This test is vision-only; ekf.predict()
-# is never called.  To enable odometry fusion, call ekf.predict(enc_data, dt) in
-# the main loop using timestamps to compute dt.
-
-
-def _parse_imu_line(line: str) -> dict | None:
-    if not line.startswith("IMU:"):
-        return None
-    result: dict = {}
-    try:
-        for token in line[4:].split(";"):
-            if token:
-                key, _, val = token.partition(":")
-                result[key] = float(val)
-    except (ValueError, AttributeError):
-        return None
-    return result if result else None
-
-
-def _parse_enc_line(line: str) -> dict | None:
-    if not line.startswith("ENC:"):
-        return None
-    result: dict = {}
-    try:
-        for token in line[4:].split(";"):
-            if token:
-                key, _, val = token.partition(":")
-                result[key] = float(val)
-    except (ValueError, AttributeError):
-        return None
-    return result if len(result) == 4 else None
-
-
-def _serial_reader(ser: serial.Serial) -> None:
-    """Background thread: read IMU and encoder lines from the drive ESP32."""
-    while True:
-        try:
-            raw = ser.readline()
-            if not raw:
-                continue
-            line = raw.decode("utf-8", errors="replace").strip()
-            imu = _parse_imu_line(line)
-            if imu:
-                with _imu_lock:
-                    _imu_data.update(imu)
-                continue
-            enc = _parse_enc_line(line)
-            if enc:
-                with _enc_lock:
-                    _enc_data.update(enc)
-        except serial.SerialException:
-            break
-        except Exception:
-            pass
-
-
-def _get_imu() -> dict:
-    with _imu_lock:
-        return dict(_imu_data)
-
-
-def _get_enc() -> dict:
-    with _enc_lock:
-        return dict(_enc_data)
 
 
 def _rad2deg(r: float) -> float:
@@ -266,7 +207,9 @@ def _draw_tag_boxes(frame, detections, camera_params) -> None:
         cv2.putText(frame, f"id={det.tag_id}", (cx_tag - 20, cy_tag),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 220, 0), 2, cv2.LINE_AA)
 
-
+# NOTE: encoder data is display-only here.  This test is vision-only; ekf.predict()
+# is never called.  To enable odometry fusion, call ekf.predict(enc_data, dt) in
+# the main loop using timestamps to compute dt.
 def main():
     # ------------------------------------------------------------------ Setup
     # Load calibration
@@ -293,17 +236,35 @@ def main():
         sys.exit(1)
     print(f"Camera opened: {CAMERA_DEVICE}")
 
-    # Optional: connect to drive ESP32 for live encoder + IMU telemetry overlay.
-    # If the port is unavailable the overlay simply shows zeros.
+    # Open drive serial — owned exclusively by this process.
+    # Do NOT also run robot_controller.py; two processes on one port causes
+    # the "device reports readiness" disconnect error.
     try:
         drive_ser = serial.Serial(DRIVE_PORT, BAUD_RATE, timeout=1)
         time.sleep(2)           # allow ESP32 to reboot after DTR assertion
         drive_ser.reset_input_buffer()
-        threading.Thread(target=_serial_reader, args=(drive_ser,), daemon=True).start()
+        rc._drive_ser = drive_ser
+        threading.Thread(
+            target=rc._serial_reader, args=(drive_ser, "drive"), daemon=True
+        ).start()
         print(f"Drive serial open: {DRIVE_PORT}  (encoder + IMU overlay active)")
     except serial.SerialException as e:
         print(f"[WARN] Drive serial unavailable ({DRIVE_PORT}): {e}")
         print("[WARN] Encoder/IMU overlay will show zeros.")
+
+    # Optional joystick drive control
+    joystick = None
+    if ENABLE_DRIVE and _pygame_available:
+        pygame.init()
+        pygame.joystick.init()
+        if pygame.joystick.get_count() > 0:
+            joystick = pygame.joystick.Joystick(0)
+            joystick.init()
+            print(f"Controller: {joystick.get_name()}  (drive enabled)")
+        else:
+            print("[WARN] ENABLE_DRIVE=True but no joystick detected.")
+    elif ENABLE_DRIVE:
+        print("[WARN] ENABLE_DRIVE=True but pygame not installed.")
 
     # AprilTag detector
     detector = apriltag.Detector(
@@ -354,14 +315,22 @@ def main():
         now = time.monotonic()
         dt = now - t_prev
 
+        # ---- Joystick drive command ----
+        if joystick is not None and rc._drive_ser is not None:
+            pygame.event.pump()
+            lx = joystick.get_axis(rc.AXIS_LX)
+            ly = joystick.get_axis(rc.AXIS_LY)
+            rx_joy = joystick.get_axis(rc.AXIS_RX)
+            rc._drive_ser.write(rc.compute_drive_command(lx, ly, rx_joy).encode())
+
         # ---- Encoder predict (ENCODER_ONLY or FULL) ----
         if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.FULL):
-            enc = _get_enc()
+            enc = rc.get_enc()
             ekf.predict([enc["fl"], enc["bl"], enc["fr"], enc["br"]], dt)
 
         # ---- IMU update (IMU_ONLY or FULL) ----
         if TEST_MODE in (TestMode.IMU_ONLY, TestMode.FULL):
-            imu = _get_imu()
+            imu = rc.get_imu("drive")
             ekf.update_imu(imu["yaw"])
 
         # ---- Localize ----
@@ -383,8 +352,8 @@ def main():
 
         # ---- Draw ----
         ex, ey, etheta, _ = ekf.get_pose()
-        enc_data = _get_enc()
-        imu_data = _get_imu()
+        enc_data = rc.get_enc()
+        imu_data = rc.get_imu("drive")
         _draw_tag_boxes(frame, detections, camera_params)
         _draw_overlay(frame, raw_result, (ex, ey, etheta), fps, enc_data, imu_data)
         # mode label — bottom centre
