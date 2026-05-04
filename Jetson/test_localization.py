@@ -161,12 +161,16 @@ def _parse_enc_line(line: str) -> dict | None:
 
 def _serial_reader(ser: serial.Serial) -> None:
     """Background thread: read IMU and encoder lines from the drive ESP32."""
+    _diag_count = 0  # print first N raw lines to help diagnose format issues
     while True:
         try:
             raw = ser.readline()
             if not raw:
                 continue
             line = raw.decode("utf-8", errors="replace").strip()
+            if _diag_count < 20:
+                print(f"[serial] raw: {line!r}")
+                _diag_count += 1
             imu = _parse_imu_line(line)
             if imu:
                 with _imu_lock:
@@ -176,10 +180,11 @@ def _serial_reader(ser: serial.Serial) -> None:
             if enc:
                 with _enc_lock:
                     _enc_data.update(enc)
-        except serial.SerialException:
+        except serial.SerialException as e:
+            print(f"[serial] SerialException: {e}")
             break
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[serial] error: {e}")
 
 
 def _get_imu() -> dict:
