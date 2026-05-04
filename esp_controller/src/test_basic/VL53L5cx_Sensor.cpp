@@ -40,8 +40,6 @@ Wire.setClock(400000);
     }
 
 void ToFData(){
-    
-    int ObsAngle[] = {-11.25, 135, 225, 315}; //angles of each column of zones with respect to center of sensor
     if (Sensor.isDataReady() == true)
     {
         if (Sensor.getRangingData(&ToFmeasurement)) //Read distance data into array

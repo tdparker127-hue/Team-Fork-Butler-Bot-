@@ -16,8 +16,8 @@
 #define MIN_LIFT_RAD  0.0  // Done!: set to min safe encoder position (e.g. arm fully lowered)
 #define MAX_LIFT_RAD   2.2   // Done! set to max safe encoder position (e.g. arm fully raised)
 
-#define MIN_GRIP_RAD  -2.0   // TODO: set to closed hard-stop position
-#define MAX_GRIP_RAD   2.0   // TODO: set to open hard-stop position
+#define MIN_GRIP_RAD  -130   // Done!: set to closed hard-stop position
+#define MAX_GRIP_RAD   5   // Done!: set to open hard-stop position
 
 // ---- Function declarations ----
 void setupArm();

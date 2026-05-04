@@ -4,6 +4,7 @@
 #include "util.h"
 #include "robot_motion_control.h"
 #include "imu.h"
+#include "VL53L5cx_Sensor.h"
 
 #ifndef JETSON_SERIAL
 #include "wireless.h"
@@ -15,6 +16,7 @@ void setup() {
     Serial.begin(115200);
     setupDrive();
     imu.setup();
+    InitializeSensor();
 #ifndef JETSON_SERIAL
     setupWireless();
 #endif
@@ -23,6 +25,11 @@ void setup() {
 void loop() {
     // Update IMU readings whenever data is ready
     imu.update();
+
+    // Poll ToF sensor; updates obstacleReading used by APF in followTrajectory()
+    EVERY_N_MILLIS(20) {
+        ToFData();
+    }
 
     // Update velocity setpoints based on trajectory / serial input at 50Hz
     EVERY_N_MILLIS(20) {
