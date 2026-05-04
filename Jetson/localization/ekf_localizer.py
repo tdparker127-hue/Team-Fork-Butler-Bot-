@@ -257,13 +257,13 @@ class EKFLocalizer:
 
         with self._lock:
             # Innovation (wrap to [-π, π])
-            innovation = _wrap_pi(yaw - float(H @ self._x))
+            innovation = _wrap_pi(yaw - float((H @ self._x)[0]))
 
             if self._gating is GatingMethod.EUCLIDEAN:
                 if abs(innovation) > EUCLID_THRESH_IMU_RAD:
                     return False
             else:  # MAHALANOBIS
-                S_val = float(H @ self._P @ H.T + R_imu)
+                S_val = float((H @ self._P @ H.T + R_imu).item())
                 if innovation ** 2 / max(S_val, 1e-12) > MAHAL_THRESH_IMU:
                     return False
 
