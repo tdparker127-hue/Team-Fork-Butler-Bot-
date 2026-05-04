@@ -326,14 +326,19 @@ def main():
             rx_joy = joystick.get_axis(rc.AXIS_RX)
             rc._drive_ser.write(rc.compute_drive_command(lx, ly, rx_joy).encode())
 
-        # ---- Encoder predict (ENCODER_ONLY or FULL) ----
+        # ---- IMU predict (all modes that use sensor data) ----
+        # The predict step uses IMU yaw rate; encoder is an update step.
+        imu = rc.get_imu("drive")
+        if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.IMU_ONLY, TestMode.FULL):
+            ekf.predict(imu["yawRate"], dt)
+
+        # ---- Encoder update (ENCODER_ONLY or FULL) ----
         if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.FULL):
             enc = rc.get_enc()
-            ekf.predict([enc["fl"], enc["bl"], enc["fr"], enc["br"]], dt)
+            ekf.update_encoder([enc["fl"], enc["bl"], enc["fr"], enc["br"]])
 
-        # ---- IMU update (IMU_ONLY or FULL) ----
+        # ---- IMU absolute-yaw update (IMU_ONLY or FULL) ----
         if TEST_MODE in (TestMode.IMU_ONLY, TestMode.FULL):
-            imu = rc.get_imu("drive")
             ekf.update_imu(imu["yaw"])
 
         # ---- Localize ----
@@ -387,8 +392,11 @@ def main():
                 print("\n[EKF] No tag visible — reset skipped.")
         elif key == ord('s'):
             ex, ey, etheta, P = ekf.get_pose()
+            vx_b, vy_b, om, P_vel = ekf.get_twist()
             print(f"\n[EKF] x={ex:.4f}  y={ey:.4f}  yaw={_rad2deg(etheta):.2f} deg")
-            print(f"      P diag: {np.diag(P)}")
+            print(f"      vx_b={vx_b:.3f}  vy_b={vy_b:.3f}  omega={om:.3f} rad/s")
+            print(f"      P_pose diag: {np.diag(P)}")
+            print(f"      P_vel  diag: {np.diag(P_vel)}")
 
     cap.release()
     cv2.destroyAllWindows()

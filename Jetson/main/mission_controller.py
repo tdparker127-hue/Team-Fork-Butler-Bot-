@@ -603,16 +603,19 @@ class MissionController:
     # -----------------------------------------------------------------------
 
     def _step(self, joystick, dt: float) -> None:
-        # 1. EKF predict from wheel encoders
+        # 1. EKF predict from IMU yaw rate
+        imu = get_imu("drive")
+        self._ekf.predict(imu["yawRate"], dt)
+
+        # 2. EKF update: wheel encoder velocities (body-frame twist)
         enc = get_enc()
         wheel_vels = [enc["fl"], enc["bl"], enc["fr"], enc["br"]]
-        self._ekf.predict(wheel_vels, dt)
+        self._ekf.update_encoder(wheel_vels)
 
-        # 2. EKF update: IMU yaw (absolute heading — no double-integrated accel)
-        imu = get_imu("drive")
+        # 3. EKF update: IMU yaw (absolute heading — no double-integrated accel)
         self._ekf.update_imu(imu["yaw"])
 
-        # 3. EKF update: AprilTag (runs at its own rate in worker thread)
+        # 4. EKF update: AprilTag (runs at its own rate in worker thread)
         if self._apriltag_worker is not None:
             tag_result = self._apriltag_worker.latest
             if tag_result is not None:
