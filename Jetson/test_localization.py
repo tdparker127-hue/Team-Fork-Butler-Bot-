@@ -323,7 +323,7 @@ def main():
             rx_joy = joystick.get_axis(rc.AXIS_RX)
             rc._drive_ser.write(rc.compute_drive_command(lx, ly, rx_joy).encode())
 
-        # ---- IMU predict (all modes that use sensor data) ----
+        # ---- IMU predict (all modes that use sensorq data) ----
         # The predict step uses IMU yaw rate; encoder is an update step.
         imu = rc.get_imu("drive")
         if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.IMU_ONLY, TestMode.FULL):
