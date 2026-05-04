@@ -37,9 +37,15 @@ import cv2
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Path setup — allow running from the repo root
+# Path setup — find the repo root by locating the Jetson package marker
+# Works regardless of CWD or how deep the script is invoked from.
 # ---------------------------------------------------------------------------
-_repo_root = Path(__file__).resolve().parent.parent  # Jetson/ -> repo root
+_here = Path(__file__).resolve().parent
+_repo_root = next(
+    (p for p in [_here, _here.parent, _here.parent.parent]
+     if (p / "Jetson" / "__init__.py").exists()),
+    _here.parent,  # fallback
+)
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 

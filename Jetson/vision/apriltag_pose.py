@@ -20,9 +20,22 @@ the tag_pose() convenience function.
 """
 
 import math
+import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
+
+# Ensure repo root is on sys.path so `from Jetson.config import` works
+# whether this module is imported directly or as part of the package.
+_here = Path(__file__).resolve().parent
+_repo_root = next(
+    (p for p in [_here, _here.parent, _here.parent.parent, _here.parent.parent.parent]
+     if (p / "Jetson" / "__init__.py").exists()),
+    _here.parent.parent,  # fallback
+)
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
 
 from Jetson.config import (
     TAG_FAMILY, TAG_SIZE_M, TAG_HEIGHT_M,
