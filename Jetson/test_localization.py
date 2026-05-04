@@ -103,7 +103,7 @@ DETECT_REFINE      = 1
 GATING = GatingMethod.MAHALANOBIS
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
-TEST_MODE = TestMode.VISION_ONLY
+TEST_MODE = TestMode.FULL
 #   Options:
 #     TestMode.VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
 #     TestMode.IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.
@@ -271,7 +271,9 @@ def _draw_tag_boxes(frame, detections, camera_params) -> None:
         cv2.putText(frame, f"id={det.tag_id}", (cx_tag - 20, cy_tag),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 220, 0), 2, cv2.LINE_AA)
 
-
+# NOTE: encoder data is display-only here.  This test is vision-only; ekf.predict()
+# is never called.  To enable odometry fusion, call ekf.predict(enc_data, dt) in
+# the main loop using timestamps to compute dt.
 def main():
     # ------------------------------------------------------------------ Setup
     # Load calibration
@@ -368,6 +370,7 @@ def main():
         if TEST_MODE in (TestMode.IMU_ONLY, TestMode.FULL):
             imu = _get_imu()
             ekf.update_imu(imu["yaw"])
+            # ekf.predict(imu["yaw"],dt) #DEBUG
 
         # ---- Localize ----
         cam_pos, R_wc, n_used = localize_camera(detections, TAG_WORLD_POSES)
