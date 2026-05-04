@@ -47,7 +47,7 @@ from Jetson.vision.apriltag_pose import (
 from Jetson.config import (
     TAG_WORLD_POSES, TAG_FAMILY, TAG_SIZE_M,
     SIGMA_TAG_XY, SIGMA_TAG_YAW,
-    COLOR_CAMERA_DEVICE,
+    COLOR_CAMERA_DEVICE, DEPTH_CAMERA_DEVICE,
 )
 from Jetson.localization.ekf_localizer import EKFLocalizer, GatingMethod
 
@@ -60,7 +60,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Configuration — edit these to match your setup
 # ---------------------------------------------------------------------------
-CAMERA_DEVICE  = COLOR_CAMERA_DEVICE   # imported from Jetson/config.py
+CAMERA_DEVICE  = DEPTH_CAMERA_DEVICE   # imported from Jetson/config.py
 CALIB_FILE     = Path(__file__).parent / "vision/camera_calibration_live.npz"
 
 FRAME_W = 1280
