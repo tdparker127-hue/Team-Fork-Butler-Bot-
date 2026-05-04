@@ -170,7 +170,15 @@ class EKFLocalizer:
             sth  = SIGMA_THETA      * dt
             svxy = SIGMA_VXY        * dt
             som  = SIGMA_OMEGA_PROC * dt
-            Q = np.diag([sxy**2, sxy**2, sth**2, svxy**2, svxy**2, som**2])
+           # In predict():
+            Q = np.diag([
+                SIGMA_XY**2         * dt,
+                SIGMA_XY**2         * dt,
+                SIGMA_THETA**2      * dt,
+                SIGMA_VXY**2        * dt,
+                SIGMA_VXY**2        * dt,
+                SIGMA_OMEGA_PROC**2 * dt,
+            ])
 
             self._P = F @ self._P @ F.T + Q
 
