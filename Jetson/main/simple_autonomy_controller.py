@@ -79,7 +79,9 @@ BTN_SPEED_BOOST = 3   # Y -- toggle high-speed arm mode
 CAMERA_DEVICE = COLOR_CAMERA_DEVICE
 CALIB_FILE    = Path(__file__).parent.parent / "vision" / "camera_calibration_live.npz"
 FRAME_W, FRAME_H, FRAME_FPS = 640, 360, 15
-SIDEBAR_W = 200   # pixel width of mission-select sidebar
+SIDEBAR_W  = 200                    # pixel width of mission panel overlay
+OVERLAY_X  = FRAME_W - SIDEBAR_W   # left edge of sidebar overlay on the frame
+WIN_NAME   = "Autonomy Controller  (q / Esc = quit)"
 
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID to drive toward
@@ -291,25 +293,47 @@ def _camera_thread(cap, detector, K_cam, dist_cam, camera_params) -> None:
             _cam_detections = dets
 
 
-# -- Sidebar ------------------------------------------------------------------
+# -- Sidebar (overlay on right strip of the camera frame) --------------------
+
+# Shared state written by the mouse callback, consumed in the main loop.
+_mouse_event = {"row": -1, "dbl": False}
+
+
+def _mouse_cb(event, x, y, flags, param) -> None:  # noqa: ANN001
+    """OpenCV mouse callback -- runs inside cv2.waitKey on the main thread."""
+    if x < OVERLAY_X:
+        return
+    row_h   = 40
+    y_start = 38
+    for i in range(len(MISSIONS)):
+        yt = y_start + i * row_h
+        if yt - 2 <= y <= yt + row_h - 6:
+            if event == cv2.EVENT_LBUTTONDBLCLK:
+                _mouse_event["row"] = i
+                _mouse_event["dbl"] = True
+            elif event == cv2.EVENT_LBUTTONDOWN:
+                _mouse_event["row"] = i
+                _mouse_event["dbl"] = False
+            return
+
 
 def _draw_sidebar(canvas: np.ndarray, sel_mission: int, seq_idx: int,
                   active_name: str) -> None:
-    """Draw the mission-select sidebar onto the right SIDEBAR_W columns of canvas."""
+    """Draw the mission panel as a semi-transparent overlay on canvas."""
     font    = cv2.FONT_HERSHEY_SIMPLEX
-    x0      = FRAME_W + 2          # drawing origin (leave 2 px for separator)
     names   = list(MISSIONS.keys())
     row_h   = 40
     y_start = 38
+    x0      = OVERLAY_X
 
-    # Separator + background
-    canvas[:, FRAME_W:FRAME_W + 2] = (70, 70, 70)
-    canvas[:, FRAME_W + 2:]        = (22, 22, 22)
+    # Dim the right strip so text is readable over any camera content
+    strip = canvas[:, x0:].astype(np.float32)
+    canvas[:, x0:] = (strip * 0.22).clip(0, 255).astype(np.uint8)
 
-    # Title
-    cv2.putText(canvas, "MISSIONS", (x0 + 6, 22),
-                font, 0.52, (160, 160, 160), 1, cv2.LINE_AA)
-    cv2.line(canvas, (x0, 28), (x0 + SIDEBAR_W - 6, 28), (55, 55, 55), 1)
+    # Title + divider
+    cv2.putText(canvas, "MISSIONS", (x0 + 8, 22),
+                font, 0.52, (180, 180, 180), 1, cv2.LINE_AA)
+    cv2.line(canvas, (x0, 28), (FRAME_W - 6, 28), (70, 70, 70), 1)
 
     for i, name in enumerate(names):
         y      = y_start + i * row_h
@@ -321,45 +345,35 @@ def _draw_sidebar(canvas: np.ndarray, sel_mission: int, seq_idx: int,
         elif is_sel:
             bg, fg = (50, 50, 110), (160, 160, 255)
         else:
-            bg, fg = (35, 35, 35),  (120, 120, 120)
+            bg, fg = (35, 35, 35),  (100, 100, 100)
 
         cv2.rectangle(canvas,
-                      (x0 + 2,            y - 2),
-                      (x0 + SIDEBAR_W - 6, y + row_h - 6),
+                      (x0 + 2,        y - 2),
+                      (FRAME_W - 4,   y + row_h - 6),
                       bg, -1)
 
-        # Prefix: arrow for selected/running, number otherwise
-        if is_run or is_sel:
-            pfx, pc = ">", (255, 200, 60) if is_sel else (60, 255, 120)
-        else:
-            pfx, pc = f"{i + 1}.", (75, 75, 75)
-        cv2.putText(canvas, pfx, (x0 + 6, y + 15),
-                    font, 0.42, pc, 1, cv2.LINE_AA)
+        pfx, pc = (">", (255, 200, 60) if is_sel else (60, 255, 120)) \
+                  if (is_run or is_sel) else (f"{i + 1}.", (70, 70, 70))
+        cv2.putText(canvas, pfx,  (x0 + 6,  y + 15), font, 0.42, pc, 1, cv2.LINE_AA)
 
-        # Mission name (truncate to fit sidebar)
         display = name if len(name) <= 17 else name[:16] + "~"
-        cv2.putText(canvas, display, (x0 + 24, y + 15),
-                    font, 0.42, fg, 1, cv2.LINE_AA)
+        cv2.putText(canvas, display, (x0 + 24, y + 15), font, 0.42, fg, 1, cv2.LINE_AA)
 
-        # Step count / progress sub-line
         steps = MISSIONS[name]
         if is_run:
-            sub     = f"step {seq_idx + 1}/{len(steps)}"
-            sub_col = (100, 220, 100)
+            sub, sc = f"step {seq_idx + 1}/{len(steps)}", (100, 220, 100)
         else:
-            n       = len(steps)
-            sub     = f"{n} step{'s' if n != 1 else ''}"
-            sub_col = (75, 75, 75)
-        cv2.putText(canvas, sub, (x0 + 24, y + 28),
-                    font, 0.37, sub_col, 1, cv2.LINE_AA)
+            n = len(steps)
+            sub, sc = f"{n} step{'s' if n != 1 else ''}", (70, 70, 70)
+        cv2.putText(canvas, sub, (x0 + 24, y + 28), font, 0.37, sc, 1, cv2.LINE_AA)
 
     # Hint strip at bottom
     hy = FRAME_H - 28
-    cv2.line(canvas, (x0, hy - 8), (x0 + SIDEBAR_W - 6, hy - 8), (50, 50, 50), 1)
-    cv2.putText(canvas, "dpad up/dn = select",
-                (x0 + 4, hy),      font, 0.35, (85, 85, 85), 1, cv2.LINE_AA)
-    cv2.putText(canvas, "X = run   B = cancel",
-                (x0 + 4, hy + 14), font, 0.35, (85, 85, 85), 1, cv2.LINE_AA)
+    cv2.line(canvas, (x0, hy - 8), (FRAME_W - 6, hy - 8), (60, 60, 60), 1)
+    cv2.putText(canvas, "click=select  dbl=run",
+                (x0 + 4, hy),      font, 0.35, (90, 90, 90), 1, cv2.LINE_AA)
+    cv2.putText(canvas, "X=run  B=cancel",
+                (x0 + 4, hy + 14), font, 0.35, (90, 90, 90), 1, cv2.LINE_AA)
 
 
 # -- Main ----------------------------------------------------------------------
@@ -446,6 +460,9 @@ def main() -> None:
 
     print("Running at 50 Hz.  Ctrl-C or q/Esc in window to stop.")
 
+    cv2.namedWindow(WIN_NAME)
+    cv2.setMouseCallback(WIN_NAME, _mouse_cb)
+
     try:
         while True:
             t0 = time.monotonic()
@@ -494,6 +511,23 @@ def main() -> None:
                 print(f"\n[SPEED] Arm: {'FAST' if fast_mode else 'NORMAL'}")
             _a_prev, _b_prev, _x_prev, _y_prev = btn_a, btn_b, btn_x, btn_y
             _hat_prev = hat
+
+            # Mouse click events (set by _mouse_cb inside cv2.waitKey)
+            _mev_row = _mouse_event["row"]
+            _mev_dbl = _mouse_event["dbl"]
+            _mouse_event["row"] = -1
+            _mouse_event["dbl"] = False
+            if _mev_row >= 0 and seq_idx < 0:
+                if _mev_dbl:
+                    sel_mission    = _mev_row
+                    active_name    = _mission_keys[sel_mission]
+                    active_seq     = MISSIONS[active_name]
+                    seq_idx        = 0
+                    auto_mode      = False
+                    seq_hold_start = 0.0
+                    print(f"\n[SEQ] '{active_name}' -- Step 1/{len(active_seq)}: {active_seq[0]['type']}")
+                else:
+                    sel_mission = _mev_row
 
             # Get latest camera frame + detections
             with _cam_lock:
@@ -621,13 +655,13 @@ def main() -> None:
             arm_ser.write(f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n".encode())
 
             # OpenCV window
-            canvas = np.zeros((FRAME_H, FRAME_W + SIDEBAR_W, 3), dtype=np.uint8)
+            canvas = np.zeros((FRAME_H, FRAME_W, 3), dtype=np.uint8)
             font   = cv2.FONT_HERSHEY_SIMPLEX
 
             if frame is not None:
                 if frame.shape[0] != FRAME_H or frame.shape[1] != FRAME_W:
                     frame = cv2.resize(frame, (FRAME_W, FRAME_H))
-                canvas[:, :FRAME_W] = frame
+                canvas[:] = frame
 
                 # Tag outlines + robot-frame position labels
                 for det in detections:
@@ -661,12 +695,13 @@ def main() -> None:
                 cv2.putText(canvas, mode_str, (8, 30), font, 0.9, (0, 0, 0),    4, cv2.LINE_AA)
                 cv2.putText(canvas, mode_str, (8, 30), font, 0.9, mode_col, 2, cv2.LINE_AA)
 
-                # Speed mode indicator (top-right of camera pane)
+                # Speed mode indicator -- keep left of the sidebar overlay
                 spd_str = "FAST ARM" if fast_mode else "normal arm"
                 spd_col = (0, 80, 255) if fast_mode else (160, 160, 160)
                 (spd_w, _), _ = cv2.getTextSize(spd_str, font, 0.7, 2)
-                cv2.putText(canvas, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, (0, 0, 0),  4, cv2.LINE_AA)
-                cv2.putText(canvas, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, spd_col,    2, cv2.LINE_AA)
+                spd_x = OVERLAY_X - spd_w - 12
+                cv2.putText(canvas, spd_str, (spd_x, 30), font, 0.7, (0, 0, 0),  4, cv2.LINE_AA)
+                cv2.putText(canvas, spd_str, (spd_x, 30), font, 0.7, spd_col,    2, cv2.LINE_AA)
 
                 # Auto status line
                 if auto_mode and tag_pos_rob is not None:
@@ -695,10 +730,10 @@ def main() -> None:
                 cv2.putText(canvas, "A=auto  X=run  B=cancel",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 
-            # Sidebar (always drawn even when camera is unavailable)
+            # Sidebar overlay (always drawn, even when camera unavailable)
             _draw_sidebar(canvas, sel_mission, seq_idx, active_name)
 
-            cv2.imshow("Autonomy Controller  (q / Esc = quit)", canvas)
+            cv2.imshow(WIN_NAME, canvas)
             key = cv2.waitKey(1) & 0xFF
             if key in (ord('q'), 27):
                 break
