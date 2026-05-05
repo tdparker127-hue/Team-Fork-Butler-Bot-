@@ -411,15 +411,16 @@ def main() -> None:
                     cv2.putText(frame,
                                 f"dist={dist:.2f}m  lat={tag_pos_rob[0]:+.2f}m  fwd={tag_pos_rob[1]:.2f}m",
                                 (8, 58), font, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-                    # Control output
-                    _parts = {t.split(':')[0]: float(t.split(':')[1])
-                              for t in drive_cmd.strip().rstrip(';').split(';') if ':' in t}
-                    cv2.putText(frame,
-                                f"cmd  lx={_parts.get('lx',0):+.3f}  ly={_parts.get('ly',0):+.3f}  yaw={_parts.get('yaw',0):+.3f}",
-                                (8, 78), font, 0.5, (200, 255, 200), 1, cv2.LINE_AA)
                 elif auto_mode:
                     cv2.putText(frame, "Tag not visible -- stopped",
                                 (8, 58), font, 0.5, (80, 80, 255), 1, cv2.LINE_AA)
+
+                # Control output -- always shown
+                _parts = {t.split(':')[0]: float(t.split(':')[1])
+                          for t in drive_cmd.strip().rstrip(';').split(';') if ':' in t}
+                cv2.putText(frame,
+                            f"cmd  lx={_parts.get('lx',0):+.3f}  ly={_parts.get('ly',0):+.3f}  yaw={_parts.get('yaw',0):+.3f}",
+                            (8, 78), font, 0.5, (200, 255, 200), 1, cv2.LINE_AA)
 
                 cv2.putText(frame, "A=auto  B=manual",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
