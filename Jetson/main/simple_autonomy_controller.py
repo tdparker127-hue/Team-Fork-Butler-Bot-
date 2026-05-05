@@ -387,7 +387,7 @@ def main() -> None:
                 # Tag outlines + robot-frame position labels
                 for det in detections:
                     pts = det.corners.astype(int)
-                    col = (0, 0, 220) if det.tag_id == TARGET_TAG_ID else (0, 200, 200)
+                    col = (0, 255, 60) if det.tag_id == TARGET_TAG_ID else (0, 200, 200)
                     cv2.polylines(frame, [pts.reshape(-1, 1, 2)], True, col, 2)
                     cx_t = int(pts[:, 0].mean())
                     cy_t = int(pts[:, 1].mean())
@@ -397,7 +397,7 @@ def main() -> None:
                         p = R_cr @ np.array(det.pose_t, dtype=float).ravel() + t_cr
                         cv2.putText(frame, f"x={p[0]:+.2f} y={p[1]:+.2f} m",
                                     (cx_t - 55, cy_t + 18),
-                                    font, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
+                                    font, 0.45, (0, 0, 255), 1, cv2.LINE_AA)
 
                 # Mode banner
                 mode_str = f"AUTO  (tag {TARGET_TAG_ID})" if auto_mode else "MANUAL"
