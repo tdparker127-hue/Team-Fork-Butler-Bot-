@@ -110,7 +110,7 @@ DETECT_REFINE      = 1
 GATING = GatingMethod.EUCLIDEAN
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
-TEST_MODE = TestMode.VISION_ONLY
+TEST_MODE = TestMode.FULL
 #   Options:
 #     TestMode.VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
 #     TestMode.IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.

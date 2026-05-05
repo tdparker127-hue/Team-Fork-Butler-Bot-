@@ -225,9 +225,9 @@ def main() -> None:
             send_drive(drive_ser, lx=0.0, ly=ly, yaw=0.0)
 
             # Show the annotated frame (bounding boxes + threat banner)
-            cv2.imshow("Person Backup Test", annotated)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+        #    cv2.imshow("Person Backup Test", annotated)
+         #   if cv2.waitKey(1) & 0xFF == ord("q"):
+          #      break
 
     except KeyboardInterrupt:
         print("\nInterrupted.")
@@ -236,7 +236,7 @@ def main() -> None:
         stop_motors(drive_ser)
         cap.release()
         drive_ser.close()
-        cv2.destroyAllWindows()
+       # cv2.destroyAllWindows()
         print("Motors stopped. Done.")
 
 
