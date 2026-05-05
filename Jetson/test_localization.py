@@ -57,6 +57,7 @@ from Jetson.config import (
     TAG_WORLD_POSES, TAG_FAMILY, TAG_SIZE_M,
     SIGMA_TAG_XY, SIGMA_TAG_YAW,
     COLOR_CAMERA_DEVICE, DEPTH_CAMERA_DEVICE,
+    T_CAM_ROBOT,
 )
 from Jetson.localization.ekf_localizer import EKFLocalizer, GatingMethod
 from Jetson.main import robot_controller as rc
@@ -204,15 +205,29 @@ def _draw_overlay(frame, raw_result, ekf_pose, fps: float, enc_data: dict, imu_d
 
 
 def _draw_tag_boxes(frame, detections, camera_params) -> None:
-    """Draw tag outlines and IDs on the frame."""
+    """Draw tag outlines and IDs on the frame, plus robot-frame pose for debug."""
     fx, fy, cx, cy = camera_params
+    R_cr = T_CAM_ROBOT[:3, :3]
+    t_cr = T_CAM_ROBOT[:3, 3]
     for det in detections:
         pts = det.corners.astype(int)
         cv2.polylines(frame, [pts.reshape(-1, 1, 2)], True, (0, 220, 0), 2)
         cx_tag = int(pts[:, 0].mean())
         cy_tag = int(pts[:, 1].mean())
-        cv2.putText(frame, f"id={det.tag_id}", (cx_tag - 20, cy_tag),
+        cv2.putText(frame, f"id={det.tag_id}", (cx_tag - 20, cy_tag - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 220, 0), 2, cv2.LINE_AA)
+
+        # Tag position in robot frame
+        if det.pose_t is not None:
+            p_cam = np.array(det.pose_t, dtype=float).ravel()
+            p_rob = R_cr @ p_cam + t_cr  # [right, forward, up]
+            label1 = f"x={p_rob[0]:+.2f} y={p_rob[1]:+.2f}"
+            label2 = f"z={p_rob[2]:+.2f} m"
+            for stroke_col, lw in [((0, 0, 0), 3), ((0, 255, 255), 1)]:
+                cv2.putText(frame, label1, (cx_tag - 55, cy_tag + 14),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, stroke_col, lw, cv2.LINE_AA)
+                cv2.putText(frame, label2, (cx_tag - 55, cy_tag + 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, stroke_col, lw, cv2.LINE_AA)
 
 # NOTE: encoder data is display-only here.  This test is vision-only; ekf.predict()
 # is never called.  To enable odometry fusion, call ekf.predict(enc_data, dt) in
@@ -368,10 +383,21 @@ def main():
             if TEST_MODE in (TestMode.VISION_ONLY, TestMode.FULL):
                 ekf.update_apriltag(rx, ry, ryaw, n_tags=n_used)
 
+            # Per-tag robot-frame positions for terminal debug
+            _R_cr = T_CAM_ROBOT[:3, :3]
+            _t_cr = T_CAM_ROBOT[:3, 3]
+            tag_rob_strs = []
+            for _det in detections:
+                if _det.tag_id in TAG_WORLD_POSES and _det.pose_t is not None:
+                    _p = _R_cr @ np.array(_det.pose_t, dtype=float).ravel() + _t_cr
+                    tag_rob_strs.append(
+                        f"tag{_det.tag_id}=[x={_p[0]:+.2f} y={_p[1]:+.2f} z={_p[2]:+.2f}]"
+                    )
+            tag_rob_info = "  " + "  ".join(tag_rob_strs) if tag_rob_strs else ""
             print(f"[{TEST_MODE.value.upper()}]  x={rx:+.3f}  y={ry:+.3f}  "
                   f"yaw={_rad2deg(ryaw):+.1f} deg  "
                   f"({n_used} tag{'s' if n_used != 1 else ''})   "
-                  f"FPS={fps:.1f}", end="\r")
+                  f"FPS={fps:.1f}{tag_rob_info}", end="\r")
         else:
             raw_result = None
 
