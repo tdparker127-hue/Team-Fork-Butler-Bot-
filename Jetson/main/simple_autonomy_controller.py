@@ -366,7 +366,7 @@ def main() -> None:
                 _err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
                 _err_lat = tag_pixel_cx - GOAL_OFFSET_X   # GOAL_OFFSET_X now in norm-pixel units
                 auto_lx  = max(-1.0, min(1.0,  K_LAT * _err_lat))
-                auto_ly  = max(-1.0, min(1.0, -K_FWD * _err_fwd))
+                auto_ly  = max(-1.0, min(1.0,  K_FWD * _err_fwd))
                 auto_yaw = max(-1.0, min(1.0,  K_YAW * _err_lat))
             else:
                 auto_lx = auto_ly = auto_yaw = 0.0
