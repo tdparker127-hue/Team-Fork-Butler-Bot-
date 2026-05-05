@@ -26,8 +26,8 @@ import time
 import cv2
 import serial
 
-from Jetson.config import COLOR_CAMERA_DEVICE
-from Jetson.vision.person_detection import PersonDetector, PersonDetection, PersonThreat
+from config import COLOR_CAMERA_DEVICE
+from vision.person_detection import PersonDetector, PersonDetection, PersonThreat
 
 # ---------------------------------------------------------------------------
 # Tuning constants
