@@ -50,26 +50,26 @@ T_CAM_DEPTH: np.ndarray = np.array(
         [0.0, -1.0, 0.0, 0.953],  
         [0.0, 0.0, 0.0, 1.00],
          
-     # [1.0, 0.0, 0.0, 0.00],  #Original values These seem to be for the camera down below not the depth camera?  
-        # [0.0, 1.0, 0.0, 0.28],  
-        # [0.0, 0.0, 1.0, 0.2155],  
-        # [0.0, 0.0, 0.0, 1.00],
+     
     ],
     dtype=float,
 )
-T_CAM_ROBOT: np.ndarray = np.array([
-    # Rotation: maps camera-frame vectors into robot-frame vectors.
-    # Camera frame (OpenCV): +X right, +Y down, +Z forward (into scene)
-    # Robot  frame:          +X right, +Y forward, +Z up
-    #   cam X (right)   → robot  X (right) .............. col 0 = [1,  0,  0]
-    #   cam Y (down)    → robot -Z (-up) ................. col 1 = [0,  0, -1]
-    #   cam Z (forward) → robot  Y (forward) ............. col 2 = [0,  1,  0]
-    # Translation: camera position in robot frame [right, forward, up]
-    [1.0,  0.0, 0.0, 0.028],
-    [0.0,  0.0, 1.0, 0.03 ],
-    [0.0, -1.0, 0.0, 0.58 ],
-    [0.0,  0.0, 0.0, 1.00 ],
-], dtype=float)
+T_CAM_ROBOT: np.ndarray = np.array(
+    [
+        # Rotation: maps camera-frame vectors into robot-frame vectors.
+        # Camera frame (OpenCV): +X right, +Y down, +Z forward (into scene)
+        # Robot  frame:          +X right, +Y forward, +Z up
+        #   cam X (right)   → robot  X (right) .............. col 0 = [1,  0,  0]
+        #   cam Y (down)    → robot -Z (-up) ................. col 1 = [0,  0, -1]
+        #   cam Z (forward) → robot  Y (forward) ............. col 2 = [0,  1,  0]
+        # Translation: camera position in robot frame [right, forward, up]
+        [1.0, 0.0, 0.0, 0.00],  #Original values These seem to be for the camera down below not the depth camera?
+        [0.0, 1.0, 0.0, 0.28],
+        [0.0, 0.0, 1.0, 0.2155],
+        [0.0, 0.0, 0.0, 1.00],
+    ],
+    dtype=float,
+)
 
 
 # ===========================================================================
