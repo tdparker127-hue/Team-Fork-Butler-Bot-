@@ -81,14 +81,14 @@ void parseJetsonSerial() {
         // Direction: directly away from the obstacle angle.
         //   Obstacle at angle theta -> unit vec toward it = (sin(theta), cos(theta))
         //   Repulsion                                     = -(sin(theta), cos(theta)) * F
-        if (obstacleReading.valid) {
-            float d   = obstacleReading.distance_m;
-            float d0  = TOF_REP_RADIUS_MM / 1000.0f;
-            float mag = K_REP * (1.0f / d - 1.0f / d0) / (d * d);
-            float theta = obstacleReading.angle_rad;
-            forward += (double)(-mag * cosf(theta));  // pushes back when obstacle is ahead
-            strafe  += (double)(-mag * sinf(theta));  // pushes laterally based on angle
-        }
+        // if (obstacleReading.valid) {
+        //     float d   = obstacleReading.distance_m;
+        //     float d0  = TOF_REP_RADIUS_MM / 1000.0f;
+        //     float mag = K_REP * (1.0f / d - 1.0f / d0) / (d * d);
+        //     float theta = obstacleReading.angle_rad;
+        //     forward += (double)(-mag * cosf(theta));  // pushes back when obstacle is ahead
+        //     strafe  += (double)(-mag * sinf(theta));  // pushes laterally based on angle
+        // }
         // Clamp to safe velocity limits after APF injection
         forward = constrain(forward, -(double)MAX_Back, (double)MAX_FORWARD);
         strafe  = constrain(strafe,  -(double)MAX_FORWARD, (double)MAX_FORWARD);

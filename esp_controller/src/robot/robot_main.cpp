@@ -16,7 +16,7 @@ void setup() {
     Serial.begin(115200);
     setupDrive();
     imu.setup();
-    InitializeSensor();
+    //InitializeSensor();
 #ifndef JETSON_SERIAL
     setupWireless();
 #endif
@@ -27,9 +27,9 @@ void loop() {
     imu.update();
 
     // Poll ToF sensor; updates obstacleReading used by APF in followTrajectory()
-    EVERY_N_MILLIS(20) {
-        ToFData();
-    }
+    // EVERY_N_MILLIS(20) {
+    //     ToFData();
+    // }
 
     // Update velocity setpoints based on trajectory / serial input at 50Hz
     EVERY_N_MILLIS(20) {

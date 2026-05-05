@@ -45,10 +45,15 @@ MAX_Y = 0.525 # most forward point on robot relative to center [m]
 #   [2,3] = height of camera above robot base origin
 T_CAM_DEPTH: np.ndarray = np.array(
     [
-        [1.0, 0.0, 0.0, 0.00],  
-        [0.0, 1.0, 0.0, 0.28],  
-        [0.0, 0.0, 1.0, 0.2155],  
+        [1.0, 0.0, 0.0, 0.00],  #DEBUG TDP edited for new depth camera 
+        [0.0, 1.0, 0.0, 0.0762],  
+        [0.0, 0.0, 1.0, 0.953],  
         [0.0, 0.0, 0.0, 1.00],
+         
+     # [1.0, 0.0, 0.0, 0.00],  #Original values These seem to be for the camera down below not the depth camera?  
+        # [0.0, 1.0, 0.0, 0.28],  
+        # [0.0, 0.0, 1.0, 0.2155],  
+        # [0.0, 0.0, 0.0, 1.00],
     ],
     dtype=float,
 )
@@ -160,7 +165,7 @@ TAG_WORLD_POSES = {
 MIN_LIFT_RAD = 0 # encoder pos when fully lowered  (TUNING: 0.0 ✅ — TODO update)
 MAX_LIFT_RAD =  3.5 # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO update)
 MIN_GRIP_RAD = 0   # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
-MAX_GRIP_RAD = 1.85  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
+MAX_GRIP_RAD = 1.85 # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
 
 
 # ===========================================================================
@@ -171,7 +176,7 @@ MAX_GRIP_RAD = 1.85  # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO
 ARM_LOWER_LIFT   = -2.5   # lift position for reaching the tray [rad]
 ARM_GRIP_CLOSE   =  0.0   # gripper closed position [rad]
 ARM_CARRY_LIFT   =  1.5   # lift position while carrying [rad]
-ARM_GRIP_OPEN    =  -1.68   # gripper open position for release [rad]
+ARM_GRIP_OPEN    =  1.85   # gripper open position for release [rad]
 
 ARM_LOWER_TIME_S =  0.1   # wait after sending lower command [s]
 ARM_GRIP_TIME_S  =  0.1   # wait after sending grip command [s]
@@ -246,7 +251,7 @@ STOP_BBOX_FRAC = 0.25   # fallback: STOP if person bbox > 25% of frame area
 # ===========================================================================
 
 COLOR_CAMERA_DEVICE = "/dev/video0"    # RGB camera (AprilTags / color blob)
-DEPTH_CAMERA_DEVICE = "/dev/video6"   # Depth / secondary RGB camera
+DEPTH_CAMERA_DEVICE = "/dev/video1"   # Depth / secondary RGB camera
 
 
 # ===========================================================================

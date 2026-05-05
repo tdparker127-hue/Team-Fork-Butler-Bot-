@@ -107,7 +107,7 @@ DETECT_REFINE      = 1
 # SIGMA_TAG_XY, SIGMA_TAG_YAW
 
 # EKF gating — switch to GatingMethod.EUCLIDEAN if you prefer fixed thresholds
-GATING = GatingMethod.MAHALANOBIS
+GATING = GatingMethod.EUCLIDEAN
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
 TEST_MODE = TestMode.FULL
@@ -326,7 +326,7 @@ def main():
             rx_joy = joystick.get_axis(rc.AXIS_RX)
             rc._drive_ser.write(rc.compute_drive_command(lx, ly, rx_joy).encode())
 
-        # ---- IMU predict (all modes that use sensor data) ----
+        # ---- IMU predict (all modes that use sensorq data) ----
         # The predict step uses IMU yaw rate; encoder is an update step.
         imu = rc.get_imu("drive")
         if TEST_MODE == TestMode.VISION_ONLY:

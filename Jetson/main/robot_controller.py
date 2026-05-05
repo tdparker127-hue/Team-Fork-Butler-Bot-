@@ -21,10 +21,10 @@ Drive mapping (holonomic vector control):
   - Mecanum mixing identical to updateSetpoints(FrLft, BkLft, FrRgt, BkRgt)
 
 Arm mapping:
-  - LB (button 4) held  → lift moves down (fixed rate)
-  - RB (button 5) held  → lift moves up   (fixed rate)
-  - LT (axis 4)  held  → gripper closes  (rate proportional to trigger depth)
-  - RT (axis 5)  held  → gripper opens   (rate proportional to trigger depth)
+  - LT (axis 4)  held  → lift moves down (rate proportional to trigger depth)
+  - RT (axis 5)  held  → lift moves up   (rate proportional to trigger depth)
+  - LB (button 4) held  → gripper closes (fixed rate)
+  - RB (button 5) held  → gripper opens  (fixed rate)
 
   NOTE: If the wrong button is triggering lift, check BTN_LB/BTN_RB below.
   Run `python3 -c "import pygame; pygame.init(); pygame.joystick.init();
@@ -49,14 +49,14 @@ BAUD_RATE  = 115200
 # MAX_FORWARD / MAX_TURN scaling lives on the ESP32 (robot_drive.h).
 # The Jetson only applies a deadband and sends normalized [-1, 1] values.
 DEADBAND = 0.1  # joystick dead-zone
-
+MAX_Drive_Slew = 4.0 # max change in drive command per second (for smoother control response)
 # ── Arm setpoint limits (radians) ────────────────────────────────────────────
 # Imported from Jetson/config.py — edit there.
 # Must also match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in include/arm_drive.h.
 
 # ── Arm max speeds ────────────────────────────────────────────────────────────
 # At 50 Hz loop: step_per_loop = speed / 50
-MAX_LIFT_SPEED = 0.5  # rad/s — fixed rate when bumper held
+MAX_LIFT_SPEED = 1.0  # rad/s — fixed rate when bumper held
 MAX_GRIP_SPEED = 1.5  # rad/s — at full trigger press (proportional to depth)
 
 # ── Xbox One BT axis / button indices (pygame on Linux) ─────────────────────
@@ -67,12 +67,12 @@ AXIS_LX = 0  # Left stick X  → strafe
 AXIS_LY = 1  # Left stick Y  → forward (up = negative, we invert below)
 AXIS_RX = 2  # Right stick X → yaw rotation
 AXIS_RY = 3  # Right stick Y → unused
-AXIS_LT = 4  # Left trigger  → grip close (rest=-1, full=+1)
-AXIS_RT = 5  # Right trigger → grip open  (rest=-1, full=+1)
+AXIS_LT = 4  # Left trigger  → lift down  (rest=-1, full=+1)
+AXIS_RT = 5  # Right trigger → lift up    (rest=-1, full=+1)
 # NOTE: On some Xbox One BT configurations, LT=axis 2 and RX=axis 3.
 # If drive yaw is wrong, try swapping AXIS_RX=3 and AXIS_LT=2.
-BTN_LB = 6  # Left bumper   → lift down
-BTN_RB = 7  # Right bumper  → lift up
+BTN_LB = 6  # Left bumper   → grip close
+BTN_RB = 7  # Right bumper  → grip open
 # NOTE: If the Y face button (standard index 3) is triggering lift instead
 # of the bumper, try BTN_LB=3 / BTN_RB=4.
 
@@ -101,23 +101,23 @@ def step_arm_setpoints(
     """
     Increment arm position setpoints by one loop step and clamp to limits.
 
-    Lift  — bumpers (digital, fixed speed):
-      RB held → lift rises at MAX_LIFT_SPEED rad/s
-      LB held → lift lowers at MAX_LIFT_SPEED rad/s
+    Lift  — triggers (analog, proportional to depth):
+      RT depth → lift rises  at up to MAX_LIFT_SPEED rad/s
+      LT depth → lift lowers at up to MAX_LIFT_SPEED rad/s
 
-    Grip  — triggers (analog, proportional to depth):
-      RT depth → gripper opens  at up to MAX_GRIP_SPEED rad/s
-      LT depth → gripper closes at up to MAX_GRIP_SPEED rad/s
+    Grip  — bumpers (digital, fixed speed):
+      RB held → gripper opens  at MAX_GRIP_SPEED rad/s
+      LB held → gripper closes at MAX_GRIP_SPEED rad/s
 
     Returns (new_lift_sp, new_grip_sp).
     """
-    # Lift: fixed rate, direction from which bumper is held
-    lift_delta = (int(rb_held) - int(lb_held)) * MAX_LIFT_SPEED * dt
+    # Lift: proportional — net trigger depth drives the rate
+    lift_delta = (_trigger_depth(lt_raw) - _trigger_depth(rt_raw)) * MAX_LIFT_SPEED * dt
     #lift_sp = lift_sp + lift_delta
     lift_sp = _clamp_range(lift_sp + lift_delta, MIN_LIFT_RAD, MAX_LIFT_RAD)
 
-    # Grip: proportional — net depth drives the rate
-    grip_delta = (_trigger_depth(rt_raw) - _trigger_depth(lt_raw)) * MAX_GRIP_SPEED * dt
+    # Grip: fixed rate, direction from which bumper is held
+    grip_delta = (int(rb_held) - int(lb_held)) * MAX_GRIP_SPEED * dt
     #grip_sp = grip_sp + grip_delta
     grip_sp = _clamp_range(grip_sp + grip_delta, MIN_GRIP_RAD, MAX_GRIP_RAD)
 
@@ -142,7 +142,8 @@ def compute_drive_command(lx: float, ly: float, rx: float) -> str:
 def _scale(value: float, deadband: float = DEADBAND) -> float:
     """Apply deadband and return the raw value unchanged otherwise."""
     return 0.0 if abs(value) < deadband else value
-
+def _slew(target: float, current: float, max_delta: float) -> float:
+    return current + max(-max_delta, min(max_delta, target - current))
 
 # ── IMU state shared between reader threads and main loop ────────────────────
 _imu_lock = threading.Lock()
@@ -231,7 +232,8 @@ def _serial_reader(ser: serial.Serial, label: str) -> None:
                     _enc_data["timestamp"] = time.monotonic()
                 continue
             if line.startswith("DBG:"):
-                pass  # ignore debug telemetry silently
+               pass  # ignore debug telemetry silently
+                #print(f"[{label}] {line[4:]}")
             elif line in ("Failed", "Sent"):
                 pass  # ESP-NOW wireless noise — suppress when no controller paired
             else:
@@ -335,7 +337,9 @@ def main() -> None:
     # Arm setpoint state — Jetson owns the incremental integration
     lift_sp = 0.0
     grip_sp = 0.0
-
+    lx_cmd = 0.0
+    ly_cmd = 0.0
+    yaw_cmd = 0.0
     try:
         while True:
             t0 = time.monotonic()
@@ -364,8 +368,13 @@ def main() -> None:
                 else False
             )
 
-            drive_cmd = compute_drive_command(lx, ly, rx)
-
+           # drive_cmd = compute_drive_command(lx, ly, rx)
+            # Slew drive commands for smoother response
+            max_step = MAX_Drive_Slew * loop_period
+            lx_cmd = _slew(lx, lx_cmd, max_step)
+            ly_cmd = _slew(ly, ly_cmd, max_step)
+            yaw_cmd = _slew(rx, yaw_cmd, max_step)
+            drive_cmd = compute_drive_command(lx_cmd, ly_cmd, yaw_cmd)
             # Step arm setpoints by one dt increment then build command string
             lift_sp, grip_sp = step_arm_setpoints(
                 lift_sp, grip_sp, lt, rt, lb, rb, loop_period
