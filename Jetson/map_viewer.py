@@ -160,9 +160,9 @@ class MapViewer:
         before rendering.
         """
         # 180° flip: negate position and wrap heading
-        x = -x
-        y = -y
-        heading = heading + math.pi
+        x = x
+        y = y
+        heading = heading
         with self._lock:
             self._trail.append((self._rx, self._ry))
             if len(self._trail) > TRAIL_MAX:
