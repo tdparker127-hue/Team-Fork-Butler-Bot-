@@ -45,10 +45,15 @@ MAX_Y = 0.525 # most forward point on robot relative to center [m]
 #   [2,3] = height of camera above robot base origin
 T_CAM_DEPTH: np.ndarray = np.array(
     [
-        [1.0, 0.0, 0.0, 0.00],  
-        [0.0, 1.0, 0.0, 0.28],  
-        [0.0, 0.0, 1.0, 0.2155],  
+        [1.0, 0.0, 0.0, 0.00],  #DEBUG TDP edited for new depth camera 
+        [0.0, 1.0, 0.0, 0.0762],  
+        [0.0, 0.0, 1.0, 0.953],  
         [0.0, 0.0, 0.0, 1.00],
+         
+     # [1.0, 0.0, 0.0, 0.00],  #Original values These seem to be for the camera down below not the depth camera?  
+        # [0.0, 1.0, 0.0, 0.28],  
+        # [0.0, 0.0, 1.0, 0.2155],  
+        # [0.0, 0.0, 0.0, 1.00],
     ],
     dtype=float,
 )
@@ -247,7 +252,7 @@ STOP_BBOX_FRAC = 0.25   # fallback: STOP if person bbox > 25% of frame area
 # ===========================================================================
 
 COLOR_CAMERA_DEVICE = "/dev/video0"    # RGB camera (AprilTags / color blob)
-DEPTH_CAMERA_DEVICE = "/dev/video0"   # Depth / secondary RGB camera
+DEPTH_CAMERA_DEVICE = "/dev/video1"   # Depth / secondary RGB camera
 
 
 # ===========================================================================
