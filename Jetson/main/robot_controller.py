@@ -231,7 +231,8 @@ def _serial_reader(ser: serial.Serial, label: str) -> None:
                     _enc_data["timestamp"] = time.monotonic()
                 continue
             if line.startswith("DBG:"):
-                pass  # ignore debug telemetry silently
+               # pass  # ignore debug telemetry silently
+                print(f"[{label}] {line[4:]}")
             elif line in ("Failed", "Sent"):
                 pass  # ESP-NOW wireless noise — suppress when no controller paired
             else:
@@ -334,7 +335,7 @@ def main() -> None:
 
     # Arm setpoint state — Jetson owns the incremental integration
     lift_sp = 0.0
-    grip_sp = MIN_GRIP_RAD
+    grip_sp = MAX_GRIP_RAD
 
     try:
         while True:

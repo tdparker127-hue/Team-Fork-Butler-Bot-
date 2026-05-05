@@ -66,7 +66,7 @@ void updateArmControl() {
     double errorGrip = gripSetpoint - posGrip;
     //motorLift.drive(ARM_KP*errorLift); //DEBUG
     effortGrip = ARM_KP * filterGrip.calculate(errorGrip);
-    motorGrip.drive(-effortGrip);
+    motorGrip.drive(effortGrip);
 
     prevPosLift = posLift;
     prevPosGrip = posGrip;
