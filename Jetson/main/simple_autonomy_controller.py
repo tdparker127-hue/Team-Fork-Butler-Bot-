@@ -528,6 +528,7 @@ def main() -> None:
                     print(f"\n[SEQ] '{active_name}' -- Step 1/{len(active_seq)}: {active_seq[0]['type']}")
                 else:
                     sel_mission = _mev_row
+                    # auto_mode   = False   # clicking the sidebar exits auto mode
 
             # Get latest camera frame + detections
             with _cam_lock:
@@ -722,6 +723,10 @@ def main() -> None:
                 cv2.putText(canvas,
                             f"auto lx={auto_lx:+.3f}  ly={auto_ly:+.3f}  yaw={auto_yaw:+.3f}",
                             (8, 98), font, 0.5, auto_col, 1, cv2.LINE_AA)
+                arm_owns_str = "seq" if seq_arm_owns else "joy"
+                cv2.putText(canvas,
+                            f"arm [{arm_owns_str}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
+                            (8, 118), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
 
                 speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
