@@ -79,6 +79,7 @@ BTN_SPEED_BOOST = 3   # Y -- toggle high-speed arm mode
 CAMERA_DEVICE = COLOR_CAMERA_DEVICE
 CALIB_FILE    = Path(__file__).parent.parent / "vision" / "camera_calibration_live.npz"
 FRAME_W, FRAME_H, FRAME_FPS = 640, 360, 15
+SIDEBAR_W = 200   # pixel width of mission-select sidebar
 
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID to drive toward
@@ -107,42 +108,32 @@ K_TURN_DEG         = 0.025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_T
                                       #   40 deg error → 1.0 (full speed)
 
 
-# ─── AUTONOMOUS SEQUENCE ───────────────────────────────────────────────────────
-# Edit this list to define the X-button autonomous sequence.
-# Steps execute in order; B button cancels immediately.
+# ─── MISSIONS ─────────────────────────────────────────────────────────────────
+# Add or edit named missions here.  Each mission is a list of steps.
+# Select at runtime with D-pad up/down and press X to run.
 #
 # Step types:
+#   "drive_tag"  tag, stop_dist, lat_off, [hold_s]
+#   "set_arm"    [lift], [grip]              (omit a key to leave unchanged)
+#   "drive_arm"  all drive_tag + set_arm params
+#   "turn_yaw"   yaw_deg, [tol_deg], [hold_s]
 #
-#   "drive_tag"  — drive toward an AprilTag until centered and at stop_dist
-#       tag        : int    AprilTag ID
-#       stop_dist  : float  desired forward stop distance [m]
-#       lat_off    : float  lateral pixel goal offset [-1..1], 0 = tag center
-#       hold_s     : float  (optional) seconds to hold within tolerance
-#
-#   "set_arm"    — rate-limited slew of lift and/or grip; waits for arrival
-#       lift       : float  target lift position [rad]  (omit to leave unchanged)
-#       grip       : float  target grip position [rad]  (omit to leave unchanged)
-#
-#   "drive_arm"  — drive_tag AND set_arm simultaneously;
-#                  advances only when BOTH are done
-#       (all drive_tag params + all set_arm params)
-#
-#   "turn_yaw"   — rotate in place to a given IMU heading
-#       yaw_deg    : float  target heading [degrees, IMU frame]
-#       tol_deg    : float  (optional) tolerance [deg]
-#       hold_s     : float  (optional) hold time [s]
-#
-SEQUENCE = [
-    # 1. Raise arm to carry height, open gripper
-    {"type": "set_arm",   "lift": 3.0,  "grip": 1.85},
-    # 2. Drive toward tag 6, stop 0.5 m away
-    # {"type": "drive_tag", "tag": 6,     "stop_dist": 0.5, "lat_off": 0.0},
-    # 3. Simultaneously close in and lower lift
-    # {"type": "drive_arm", "tag": 6,     "stop_dist": 0.3, "lat_off": 0.0,
-    #                       "lift": 1.5,  "grip": 1.85},
-    # # 4. Release gripper
-    # {"type": "set_arm",   "grip": 0.0},
-]
+MISSIONS = {
+    "Full Pickup": [
+        {"type": "set_arm",   "lift": 3.0,  "grip": 1.85},
+        {"type": "drive_tag", "tag": 6,     "stop_dist": 0.5, "lat_off": 0.0},
+        {"type": "drive_arm", "tag": 6,     "stop_dist": 0.3, "lat_off": 0.0,
+                              "lift": 1.5,  "grip": 1.85},
+        {"type": "set_arm",   "grip": 0.0},
+    ],
+    "Approach Only": [
+        {"type": "set_arm",   "lift": 3.0,  "grip": 1.85},
+        {"type": "drive_tag", "tag": 6,     "stop_dist": 0.5, "lat_off": 0.0},
+    ],
+    "Arm Home": [
+        {"type": "set_arm",   "lift": 0.0,  "grip": 0.0},
+    ],
+}
 
 
 # -- Helper functions ----------------------------------------------------------
@@ -300,6 +291,77 @@ def _camera_thread(cap, detector, K_cam, dist_cam, camera_params) -> None:
             _cam_detections = dets
 
 
+# -- Sidebar ------------------------------------------------------------------
+
+def _draw_sidebar(canvas: np.ndarray, sel_mission: int, seq_idx: int,
+                  active_name: str) -> None:
+    """Draw the mission-select sidebar onto the right SIDEBAR_W columns of canvas."""
+    font    = cv2.FONT_HERSHEY_SIMPLEX
+    x0      = FRAME_W + 2          # drawing origin (leave 2 px for separator)
+    names   = list(MISSIONS.keys())
+    row_h   = 40
+    y_start = 38
+
+    # Separator + background
+    canvas[:, FRAME_W:FRAME_W + 2] = (70, 70, 70)
+    canvas[:, FRAME_W + 2:]        = (22, 22, 22)
+
+    # Title
+    cv2.putText(canvas, "MISSIONS", (x0 + 6, 22),
+                font, 0.52, (160, 160, 160), 1, cv2.LINE_AA)
+    cv2.line(canvas, (x0, 28), (x0 + SIDEBAR_W - 6, 28), (55, 55, 55), 1)
+
+    for i, name in enumerate(names):
+        y      = y_start + i * row_h
+        is_sel = (i == sel_mission)
+        is_run = (seq_idx >= 0 and name == active_name)
+
+        if is_run:
+            bg, fg = (0, 80, 30),   (60, 255, 120)
+        elif is_sel:
+            bg, fg = (50, 50, 110), (160, 160, 255)
+        else:
+            bg, fg = (35, 35, 35),  (120, 120, 120)
+
+        cv2.rectangle(canvas,
+                      (x0 + 2,            y - 2),
+                      (x0 + SIDEBAR_W - 6, y + row_h - 6),
+                      bg, -1)
+
+        # Prefix: arrow for selected/running, number otherwise
+        if is_run or is_sel:
+            pfx, pc = ">", (255, 200, 60) if is_sel else (60, 255, 120)
+        else:
+            pfx, pc = f"{i + 1}.", (75, 75, 75)
+        cv2.putText(canvas, pfx, (x0 + 6, y + 15),
+                    font, 0.42, pc, 1, cv2.LINE_AA)
+
+        # Mission name (truncate to fit sidebar)
+        display = name if len(name) <= 17 else name[:16] + "~"
+        cv2.putText(canvas, display, (x0 + 24, y + 15),
+                    font, 0.42, fg, 1, cv2.LINE_AA)
+
+        # Step count / progress sub-line
+        steps = MISSIONS[name]
+        if is_run:
+            sub     = f"step {seq_idx + 1}/{len(steps)}"
+            sub_col = (100, 220, 100)
+        else:
+            n       = len(steps)
+            sub     = f"{n} step{'s' if n != 1 else ''}"
+            sub_col = (75, 75, 75)
+        cv2.putText(canvas, sub, (x0 + 24, y + 28),
+                    font, 0.37, sub_col, 1, cv2.LINE_AA)
+
+    # Hint strip at bottom
+    hy = FRAME_H - 28
+    cv2.line(canvas, (x0, hy - 8), (x0 + SIDEBAR_W - 6, hy - 8), (50, 50, 50), 1)
+    cv2.putText(canvas, "dpad up/dn = select",
+                (x0 + 4, hy),      font, 0.35, (85, 85, 85), 1, cv2.LINE_AA)
+    cv2.putText(canvas, "X = run   B = cancel",
+                (x0 + 4, hy + 14), font, 0.35, (85, 85, 85), 1, cv2.LINE_AA)
+
+
 # -- Main ----------------------------------------------------------------------
 
 def main() -> None:
@@ -373,9 +435,14 @@ def main() -> None:
     lx_cmd = ly_cmd = yaw_cmd = 0.0
     auto_mode      = False   # start in manual
     fast_mode      = False   # start in normal speed
-    seq_idx        = -1      # -1 = not running; >= 0 = current SEQUENCE index
+    seq_idx        = -1      # -1 = not running; >= 0 = current step index
     seq_hold_start = 0.0     # monotonic time when we entered the tolerance zone
+    _mission_keys  = list(MISSIONS.keys())
+    sel_mission    = 0                            # highlighted mission in sidebar
+    active_name    = _mission_keys[0]             # name of running/last mission
+    active_seq     = MISSIONS[active_name]        # step list currently running
     _a_prev = _b_prev = _x_prev = _y_prev = False
+    _hat_prev = (0, 0)
 
     print("Running at 50 Hz.  Ctrl-C or q/Esc in window to stop.")
 
@@ -394,27 +461,39 @@ def main() -> None:
             rb = bool(joystick.get_button(BTN_RB)) if joystick.get_numbuttons() > BTN_RB else False
             btn_a = bool(joystick.get_button(BTN_AUTO))
             btn_b = bool(joystick.get_button(BTN_MANUAL))
-            btn_x = bool(joystick.get_button(BTN_SEQ))   if joystick.get_numbuttons() > BTN_SEQ         else False
+            btn_x = bool(joystick.get_button(BTN_SEQ))         if joystick.get_numbuttons() > BTN_SEQ         else False
             btn_y = bool(joystick.get_button(BTN_SPEED_BOOST)) if joystick.get_numbuttons() > BTN_SPEED_BOOST else False
+            hat   = joystick.get_hat(0) if joystick.get_numhats() > 0 else (0, 0)
+
+            _mission_keys = list(MISSIONS.keys())
+
+            # D-pad up/down navigates mission list (only when not running)
+            if seq_idx < 0:
+                if hat[1] == 1 and _hat_prev[1] != 1:
+                    sel_mission = (sel_mission - 1) % len(_mission_keys)
+                elif hat[1] == -1 and _hat_prev[1] != -1:
+                    sel_mission = (sel_mission + 1) % len(_mission_keys)
 
             # Mode switching (edge-triggered)
-            if btn_b and not _b_prev:               # B always cancels everything
+            if btn_b and not _b_prev:               # B always cancels
                 auto_mode = False
                 seq_idx   = -1
                 print("\n[MODE] MANUAL")
-            elif btn_x and not _x_prev:             # X starts sequence
+            elif btn_x and not _x_prev:             # X starts selected mission
+                active_name    = _mission_keys[sel_mission]
+                active_seq     = MISSIONS[active_name]
                 seq_idx        = 0
                 auto_mode      = False
                 seq_hold_start = 0.0
-                print(f"\n[SEQ] Start -- Step 1/{len(SEQUENCE)}: {SEQUENCE[0]['type']}")
+                print(f"\n[SEQ] '{active_name}' -- Step 1/{len(active_seq)}: {active_seq[0]['type']}")
             elif btn_a and not _a_prev and seq_idx < 0:   # A only when not in sequence
                 auto_mode = True
                 print(f"\n[MODE] AUTONOMOUS -- driving toward tag {TARGET_TAG_ID}")
             if btn_y and not _y_prev:
                 fast_mode = not fast_mode
-                label = "FAST" if fast_mode else "NORMAL"
-                print(f"\n[SPEED] Arm speed: {label}")
+                print(f"\n[SPEED] Arm: {'FAST' if fast_mode else 'NORMAL'}")
             _a_prev, _b_prev, _x_prev, _y_prev = btn_a, btn_b, btn_x, btn_y
+            _hat_prev = hat
 
             # Get latest camera frame + detections
             with _cam_lock:
@@ -445,7 +524,7 @@ def main() -> None:
             seq_drive_lx = seq_drive_ly = seq_drive_yaw = 0.0
             seq_arm_owns = False   # True = sequence owns arm (block joystick)
             if seq_idx >= 0:
-                step  = SEQUENCE[seq_idx]
+                step  = active_seq[seq_idx]
                 stype = step["type"]
                 now   = time.monotonic()
 
@@ -507,15 +586,15 @@ def main() -> None:
                 if drive_done and arm_done:
                     seq_idx += 1
                     seq_hold_start = 0.0
-                    if seq_idx >= len(SEQUENCE):
+                    if seq_idx >= len(active_seq):
                         seq_idx = -1
-                        print("\n[SEQ] Sequence complete -- returning to MANUAL")
+                        print(f"\n[SEQ] '{active_name}' complete -- returning to MANUAL")
                     else:
-                        print(f"\n[SEQ] Step {seq_idx + 1}/{len(SEQUENCE)}: {SEQUENCE[seq_idx]['type']}")
+                        print(f"\n[SEQ] Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
 
             # ── Drive command ─────────────────────────────────────────────────
             if seq_idx >= 0:
-                _stype = SEQUENCE[seq_idx]["type"]
+                _stype = active_seq[seq_idx]["type"]
                 if _stype in ("drive_tag", "drive_arm", "turn_yaw"):
                     drive_cmd = f"lx:{seq_drive_lx:.3f};ly:{seq_drive_ly:.3f};yaw:{seq_drive_yaw:.3f};\n"
                 else:
@@ -542,34 +621,34 @@ def main() -> None:
             arm_ser.write(f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n".encode())
 
             # OpenCV window
+            canvas = np.zeros((FRAME_H, FRAME_W + SIDEBAR_W, 3), dtype=np.uint8)
+            font   = cv2.FONT_HERSHEY_SIMPLEX
+
             if frame is not None:
-                font = cv2.FONT_HERSHEY_SIMPLEX
+                canvas[:, :FRAME_W] = frame
 
                 # Tag outlines + robot-frame position labels
                 for det in detections:
                     pts = det.corners.astype(int)
                     col = (0, 255, 60) if det.tag_id == TARGET_TAG_ID else (0, 200, 200)
-                    cv2.polylines(frame, [pts.reshape(-1, 1, 2)], True, col, 2)
+                    cv2.polylines(canvas, [pts.reshape(-1, 1, 2)], True, col, 2)
                     cx_t = int(pts[:, 0].mean())
                     cy_t = int(pts[:, 1].mean())
-                    cv2.putText(frame, f"id={det.tag_id}", (cx_t - 20, cy_t - 10),
+                    cv2.putText(canvas, f"id={det.tag_id}", (cx_t - 20, cy_t - 10),
                                 font, 0.6, col, 2, cv2.LINE_AA)
                     if det.pose_t is not None:
                         p_cam = np.array(det.pose_t, dtype=float).ravel()
                         p     = R_cr @ p_cam + t_cr
-                        # Robot-frame (after transform)
-                        cv2.putText(frame, f"rob x={p[0]:+.2f} y={p[1]:+.2f} m",
+                        cv2.putText(canvas, f"rob x={p[0]:+.2f} y={p[1]:+.2f} m",
                                     (cx_t - 70, cy_t + 18),
                                     font, 0.45, (0, 0, 255), 1, cv2.LINE_AA)
-                        # Raw camera-frame (before transform): cam +X=right, +Y=down, +Z=forward
-                        cv2.putText(frame, f"cam x={p_cam[0]:+.2f} z={p_cam[2]:+.2f} m",
+                        cv2.putText(canvas, f"cam x={p_cam[0]:+.2f} z={p_cam[2]:+.2f} m",
                                     (cx_t - 70, cy_t + 34),
                                     font, 0.45, (255, 180, 0), 1, cv2.LINE_AA)
 
                 # Mode banner (top-left)
                 if seq_idx >= 0:
-                    _sb = SEQUENCE[seq_idx]
-                    mode_str = f"SEQ {seq_idx + 1}/{len(SEQUENCE)}: {_sb['type']}  (B=cancel)"
+                    mode_str = f"SEQ {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}  (B=cancel)"
                     mode_col = (0, 180, 255)
                 elif auto_mode:
                     mode_str = f"AUTO  (tag {TARGET_TAG_ID})"
@@ -577,48 +656,50 @@ def main() -> None:
                 else:
                     mode_str = "MANUAL"
                     mode_col = (40, 80, 255)
-                cv2.putText(frame, mode_str, (8, 30), font, 0.9, (0, 0, 0),    4, cv2.LINE_AA)
-                cv2.putText(frame, mode_str, (8, 30), font, 0.9, mode_col, 2, cv2.LINE_AA)
+                cv2.putText(canvas, mode_str, (8, 30), font, 0.9, (0, 0, 0),    4, cv2.LINE_AA)
+                cv2.putText(canvas, mode_str, (8, 30), font, 0.9, mode_col, 2, cv2.LINE_AA)
 
-                # Speed mode indicator (top-right)
+                # Speed mode indicator (top-right of camera pane)
                 spd_str = "FAST ARM" if fast_mode else "normal arm"
                 spd_col = (0, 80, 255) if fast_mode else (160, 160, 160)
                 (spd_w, _), _ = cv2.getTextSize(spd_str, font, 0.7, 2)
-                cv2.putText(frame, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, (0, 0, 0),  4, cv2.LINE_AA)
-                cv2.putText(frame, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, spd_col,    2, cv2.LINE_AA)
+                cv2.putText(canvas, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, (0, 0, 0),  4, cv2.LINE_AA)
+                cv2.putText(canvas, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, spd_col,    2, cv2.LINE_AA)
 
                 # Auto status line
                 if auto_mode and tag_pos_rob is not None:
-                    cv2.putText(frame,
+                    cv2.putText(canvas,
                                 f"fwd={tag_pos_rob[1]:.2f}m  pix_x={tag_pixel_cx:+.3f}",
                                 (8, 58), font, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
                 elif auto_mode:
-                    cv2.putText(frame, "Tag not visible -- stopped",
+                    cv2.putText(canvas, "Tag not visible -- stopped",
                                 (8, 58), font, 0.5, (80, 80, 255), 1, cv2.LINE_AA)
 
-                # Actual control output (what is being sent)
+                # Drive output overlay
                 _parts = {t.split(':')[0]: float(t.split(':')[1])
                           for t in drive_cmd.strip().rstrip(';').split(';') if ':' in t}
-                cv2.putText(frame,
+                cv2.putText(canvas,
                             f"cmd  lx={_parts.get('lx',0):+.3f}  ly={_parts.get('ly',0):+.3f}  yaw={_parts.get('yaw',0):+.3f}",
                             (8, 78), font, 0.5, (200, 255, 200), 1, cv2.LINE_AA)
-                # Autonomous planned effort -- always shown
                 auto_col = (200, 200, 255) if tag_pos_rob is not None else (100, 100, 180)
-                cv2.putText(frame,
+                cv2.putText(canvas,
                             f"auto lx={auto_lx:+.3f}  ly={auto_ly:+.3f}  yaw={auto_yaw:+.3f}",
                             (8, 98), font, 0.5, auto_col, 1, cv2.LINE_AA)
 
                 speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
-                cv2.putText(frame, speed_str,
+                cv2.putText(canvas, speed_str,
                             (FRAME_W - 160, FRAME_H - 10), font, 0.45, speed_col, 1, cv2.LINE_AA)
-                cv2.putText(frame, "A=auto  X=sequence  B=manual",
+                cv2.putText(canvas, "A=auto  X=run  B=cancel",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 
-                cv2.imshow("Autonomy Controller  (q / Esc = quit)", frame)
-                key = cv2.waitKey(1) & 0xFF
-                if key in (ord('q'), 27):
-                    break
+            # Sidebar (always drawn even when camera is unavailable)
+            _draw_sidebar(canvas, sel_mission, seq_idx, active_name)
+
+            cv2.imshow("Autonomy Controller  (q / Esc = quit)", canvas)
+            key = cv2.waitKey(1) & 0xFF
+            if key in (ord('q'), 27):
+                break
 
             elapsed = time.monotonic() - t0
             sleep_for = loop_period - elapsed
