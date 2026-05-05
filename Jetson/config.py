@@ -290,7 +290,8 @@ SLOW_DIST_M      = 2.0    # enter SLOW zone if person within this distance [m]
 STOP_DIST_M      = 0.8    # enter STOP zone if person within this distance [m]
 SLOW_BBOX_FRAC   = 0.10   # fallback: SLOW if person bbox > 10% of frame area
 STOP_BBOX_FRAC   = 0.25   # fallback: STOP if person bbox > 25% of frame area
-PERSON_SLOW_SPEED = 0.25  # max normalized drive speed when in SLOW zone [0-1]
+PERSON_SLOW_SPEED    = 0.25  # max normalized drive speed when in SLOW zone [0-1]
+PERSON_DETECT_EVERY_N = 10   # run YOLO only every N loop iterations (~5 Hz at 50 Hz loop)
 
 
 # ===========================================================================

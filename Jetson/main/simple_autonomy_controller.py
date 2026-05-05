@@ -45,6 +45,7 @@ from Jetson.config import (
     MAX_LIFT_SPEED, MAX_GRIP_SPEED, MAX_LIFT_SPEED_FAST, MAX_GRIP_SPEED_FAST,
     TAG_FAMILY, TAG_SIZE_M, T_CAM_ROBOT, COLOR_CAMERA_DEVICE,
     PERSON_SLOW_SPEED,
+    PERSON_DETECT_EVERY_N,
 )
 from Jetson.vision.person_detection import PersonDetector, PersonThreat
 
@@ -454,8 +455,11 @@ def main() -> None:
 
     # Person detector — instantiated once so the model loads before the loop
     print("[PERSON] Loading YOLO person detector...")
-    person_detector = PersonDetector()
-    person_threat   = PersonThreat.CLEAR
+    person_detector       = PersonDetector()
+    person_threat         = PersonThreat.CLEAR
+    person_detect_enabled = True    # toggled with 'p' key in OpenCV window
+    _person_detect_ctr    = 0       # counts loop iterations; detect every PERSON_DETECT_EVERY_N
+    _person_annotated     = None    # cached annotated frame from last detection
     print("[PERSON] Ready.")
 
     cv2.namedWindow(WIN_NAME)
@@ -628,10 +632,11 @@ def main() -> None:
                 )
 
             # ── Person detection (cap drive_cmd before writing) ───────────────
-            if frame is not None:
+            _person_detect_ctr += 1
+            if person_detect_enabled and frame is not None and (_person_detect_ctr % PERSON_DETECT_EVERY_N == 0):
                 person_threat, _person_dets, _person_annotated = person_detector.detect(frame)
-            else:
-                _person_dets      = []
+            elif not person_detect_enabled:
+                person_threat     = PersonThreat.CLEAR
                 _person_annotated = None
 
             if person_threat == PersonThreat.STOP:
@@ -698,7 +703,10 @@ def main() -> None:
                     PersonThreat.SLOW:  ("PERSON: SLOW",  (0, 165, 255)),
                     PersonThreat.STOP:  ("PERSON: STOP",  (0, 0, 220)),
                 }
-                _thr_str, _thr_col = _threat_labels[person_threat]
+                if not person_detect_enabled:
+                    _thr_str, _thr_col = "PERSON: OFF (p)", (120, 120, 120)
+                else:
+                    _thr_str, _thr_col = _threat_labels[person_threat]
                 (_thr_w, _thr_h), _ = cv2.getTextSize(_thr_str, font, 0.75, 2)
                 _thr_x = OVERLAY_X - _thr_w - 8
                 cv2.putText(canvas, _thr_str, (_thr_x, 56), font, 0.75, (0, 0, 0),  4, cv2.LINE_AA)
@@ -727,7 +735,7 @@ def main() -> None:
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
                 cv2.putText(canvas, speed_str,
                             (FRAME_W - 160, FRAME_H - 10), font, 0.45, speed_col, 1, cv2.LINE_AA)
-                cv2.putText(canvas, "A=run  X=run  B=cancel",
+                cv2.putText(canvas, "A=run  X=run  B=cancel  p=person det",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 
             # Sidebar overlay (always drawn, even when camera unavailable)
@@ -737,6 +745,10 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if key in (ord('q'), 27):
                 break
+            elif key == ord('p'):
+                person_detect_enabled = not person_detect_enabled
+                state_str = "ON" if person_detect_enabled else "OFF"
+                print(f"\n[PERSON] Detection {state_str}")
 
             elapsed = time.monotonic() - t0
             sleep_for = loop_period - elapsed
