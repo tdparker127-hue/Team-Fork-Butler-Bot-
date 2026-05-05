@@ -625,6 +625,8 @@ def main() -> None:
             font   = cv2.FONT_HERSHEY_SIMPLEX
 
             if frame is not None:
+                if frame.shape[0] != FRAME_H or frame.shape[1] != FRAME_W:
+                    frame = cv2.resize(frame, (FRAME_W, FRAME_H))
                 canvas[:, :FRAME_W] = frame
 
                 # Tag outlines + robot-frame position labels
