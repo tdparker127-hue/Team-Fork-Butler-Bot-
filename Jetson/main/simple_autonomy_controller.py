@@ -599,7 +599,7 @@ def main() -> None:
                         drive_done = False
 
                 elif stype == "turn_yaw":
-                    _imu_yaw = get_imu("drive").get("yaw", 0.0)
+                    _imu_yaw = math.degrees(get_imu("drive").get("yaw", 0.0))  # firmware sends radians
                     _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
                     seq_drive_yaw = max(-1., min(1., K_TURN_DEG * _err_deg))
                     _in_tol = abs(_err_deg) < step.get("tol_deg", SEQ_YAW_TOL_DEG)
@@ -743,7 +743,7 @@ def main() -> None:
                 cv2.putText(canvas,
                             f"arm [{arm_owns_str}][step {seq_idx}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
                             (8, 78), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
-                _cur_yaw = get_imu("drive").get("yaw", 0.0)
+                _cur_yaw = math.degrees(get_imu("drive").get("yaw", 0.0))  # firmware sends radians
                 cv2.putText(canvas,
                             f"IMU yaw={_cur_yaw:+.1f} deg",
                             (8, 98), font, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
