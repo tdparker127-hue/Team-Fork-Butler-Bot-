@@ -743,6 +743,10 @@ def main() -> None:
                 cv2.putText(canvas,
                             f"arm [{arm_owns_str}][step {seq_idx}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
                             (8, 78), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
+                _cur_yaw = get_imu("drive").get("yaw", 0.0)
+                cv2.putText(canvas,
+                            f"IMU yaw={_cur_yaw:+.1f} deg",
+                            (8, 98), font, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
 
                 speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
