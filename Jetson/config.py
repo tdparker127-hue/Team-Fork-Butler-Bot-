@@ -46,8 +46,8 @@ MAX_Y = 0.525 # most forward point on robot relative to center [m]
 T_CAM_DEPTH: np.ndarray = np.array(
     [
         [1.0, 0.0, 0.0, 0.00],  #DEBUG TDP edited for new depth camera 
-        [0.0, 1.0, 0.0, 0.0762],  
-        [0.0, 0.0, 1.0, 0.953],  
+        [0.0, 0.0, 1.0, 0.0762],  
+        [0.0, -1.0, 0.0, 0.953],  
         [0.0, 0.0, 0.0, 1.00],
          
      # [1.0, 0.0, 0.0, 0.00],  #Original values These seem to be for the camera down below not the depth camera?  
