@@ -98,23 +98,23 @@ def wall_tag_rotation(facing_angle_deg: float) -> np.ndarray:
     return np.column_stack([tag_x, tag_y, tag_z])
 
 
-def tag_pose(dx: float, dy: float, facing_angle_deg: float,
+def tag_pose(x: float, y: float, facing_angle_deg: float,
              height_m: float = TAG_HEIGHT_M) -> dict:
     """
-    Define a tag world pose as an offset (dx, dy) from tag 1 (origin).
+    Define a tag world pose in arena coordinates (origin = arena corner (0,0)).
 
-    dx, dy           : position offset from tag 1 [m] (world X / Y)
+    x, y             : absolute arena position [m] — matches mission_config.yaml
     facing_angle_deg : direction the tag face points (see wall_tag_rotation)
     height_m         : tag centre height above the floor [m]
     """
     return {
-        "position": np.array([dx, dy, height_m]),
+        "position": np.array([x, y, height_m]),
         "rotation": wall_tag_rotation(facing_angle_deg),
     }
 
 
-# Tag 1 is the world origin: position = (0, 0, TAG_HEIGHT_M).
-# TODO: measure your physical tag positions and replace placeholders below.
+# All positions match mission_config.yaml exactly.
+# Origin = arena corner (0, 0).  +X rightward, +Y away from front wall.
 #
 # facing_angle_deg convention:
 #   0   → EAST  (tag on west  wall, faces into arena along +X)
@@ -122,38 +122,37 @@ def tag_pose(dx: float, dy: float, facing_angle_deg: float,
 # 180   → WEST  (tag on east  wall, faces into arena along -X)
 # 270   → SOUTH (tag on north wall, faces into arena along -Y)
 TAG_WORLD_POSES = {
-    # All positions are (x - 3.57, y - 2.565) from mission_config.yaml
     # heading converted from radians to degrees (facing_angle_deg = outward normal direction)
 
-    # Tag 1 — WORLD ORIGIN (table_tray).  heading=0 → faces +X
-    1: tag_pose(dx= 0.0000, dy= 0.0000, facing_angle_deg=  0.0),
+    # Tag 1 — table_tray.  heading=0 rad → faces +X (0°)
+    1: tag_pose(x=3.5700, y=2.5650, facing_angle_deg=  0.0),
 
     # Tag 2 — table_back_left.  heading=3.14 rad → faces -X (180°)
-    2: tag_pose(dx= 0.2850, dy= 0.3000, facing_angle_deg=180.0),
+    2: tag_pose(x=3.8550, y=2.8650, facing_angle_deg=180.0),
 
     # Tag 3 — ramp_tag_2.  heading=0 rad → faces +X (0°)
-    3: tag_pose(dx=-1.5125, dy= 0.2875, facing_angle_deg=  0.0),
+    3: tag_pose(x=2.0575, y=2.8525, facing_angle_deg=  0.0),
 
     # Tag 4 — ramp_tag_1.  heading=-1.57 rad → faces -Y (270°)
-    4: tag_pose(dx=-2.2975, dy=-0.5750, facing_angle_deg=270.0),
+    4: tag_pose(x=1.2725, y=1.9900, facing_angle_deg=270.0),
 
     # Tag 5 — left_tag_table.  heading=0 rad → faces +X (0°)
-    5: tag_pose(dx=-3.2550, dy=-1.9750, facing_angle_deg=  0.0),
+    5: tag_pose(x=0.3150, y=0.5900, facing_angle_deg=  0.0),
 
     # Tag 6 — right_tag_table.  heading=0 rad → faces +X (0°)
-    6: tag_pose(dx=-3.2550, dy=-1.3900, facing_angle_deg=  0.0),
+    6: tag_pose(x=0.3150, y=1.1750, facing_angle_deg=  0.0),
 
     # Tag 7 — table_back_right.  heading=3.14 rad → faces -X (180°)
-    7: tag_pose(dx= 1.0850, dy=-1.0350, facing_angle_deg=180.0),
+    7: tag_pose(x=4.6550, y=1.5300, facing_angle_deg=180.0),
 
     # Tag 8 — dishwasher_tag.  heading=1.57 rad → faces +Y (90°)
-    8: tag_pose(dx= 0.4025, dy=-2.2025, facing_angle_deg= 90.0),
+    8: tag_pose(x=3.9725, y=0.3625, facing_angle_deg= 90.0),
 
     # Tag 9 — front_wall.  heading=1.57 rad → faces +Y (90°)
-    9: tag_pose(dx=-2.6000, dy=-2.5050, facing_angle_deg= 90.0),
+    9: tag_pose(x=0.9700, y=0.0600, facing_angle_deg= 90.0),
 
     # Tag 0 — back_wall.  heading=0 rad → faces +X (0°)
-    0: tag_pose(dx=-0.9750, dy= 0.9800, facing_angle_deg=  0.0),
+    0: tag_pose(x=2.5950, y=3.5450, facing_angle_deg=  0.0),
 }
 
 
@@ -211,8 +210,8 @@ SIGMA_OMEGA_PROC = 0.20  # angular velocity process noise density [rad/s²]
 SIGMA_IMU_YAW = 0.035   # BNO08x heading noise [rad]
 
 # 6.3 AprilTag measurement noise (for 1 tag; scales by 1/√n_tags)
-SIGMA_TAG_XY  = 0.003    # per-axis position noise [m]
-SIGMA_TAG_YAW = 0.004    # heading noise [rad]
+SIGMA_TAG_XY  = 0.15     # per-axis position noise [m]  — ~15 cm realistic for camera at 1-3 m
+SIGMA_TAG_YAW = 0.08     # heading noise [rad]          — ~4.5° realistic
 
 # 6.3b Encoder velocity measurement noise
 SIGMA_ENC_VXY   = 0.05   # body-frame translational velocity noise [m/s]

@@ -90,10 +90,8 @@ FRAME_W   = 640
 FRAME_H   = 360
 FRAME_FPS = 15
 
-# Tag 1 (table_tray) position in the mission_config.yaml absolute arena frame.
-# Used to convert initial_state coords into the TAG_WORLD_POSES frame.
-_TAG1_MC_X = 3.57
-_TAG1_MC_Y = 2.565
+# TAG_WORLD_POSES and mission_config.yaml share the same arena frame (origin = arena corner).
+# No coordinate conversion needed.
 
 
 # ===========================================================================
@@ -291,8 +289,8 @@ def main() -> None:
 
     # --- Seed pose (mission_config frame → TAG_WORLD_POSES frame) ----------
     init_mc    = cfg["initial_state"]
-    init_x     = init_mc["position"]["x"] - _TAG1_MC_X
-    init_y     = init_mc["position"]["y"] - _TAG1_MC_Y
+    init_x     = float(init_mc["position"]["x"])
+    init_y     = float(init_mc["position"]["y"])
     init_theta = float(init_mc["heading"])
 
     # --- Approach geometry -------------------------------------------------
