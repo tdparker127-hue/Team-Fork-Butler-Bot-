@@ -43,6 +43,7 @@ except ImportError:
 
 from Jetson.config import (
     MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD,
+    MAX_LIFT_SPEED, MAX_GRIP_SPEED, MAX_LIFT_SPEED_FAST, MAX_GRIP_SPEED_FAST,
     TAG_FAMILY, TAG_SIZE_M, T_CAM_ROBOT, COLOR_CAMERA_DEVICE,
 )
 
@@ -56,8 +57,8 @@ DEADBAND       = 0.1
 MAX_Drive_Slew = 4.0   # max normalized change per second (smoothing)
 
 # -- Arm speeds ----------------------------------------------------------------
-MAX_LIFT_SPEED = 1.0   # rad/s
-MAX_GRIP_SPEED = 1.5   # rad/s
+# Imported from Jetson/config.py — edit there.
+# MAX_LIFT_SPEED, MAX_GRIP_SPEED, MAX_LIFT_SPEED_FAST, MAX_GRIP_SPEED_FAST
 
 # -- Xbox One BT axis / button indices -----------------------------------------
 AXIS_LX = 0  # Left stick X  -> strafe
@@ -68,8 +69,9 @@ AXIS_LT = 4  # Left trigger  -> lift down
 AXIS_RT = 5  # Right trigger -> lift up
 BTN_LB     = 6   # grip close
 BTN_RB     = 7   # grip open
-BTN_AUTO   = 0   # A -- enter autonomous mode
-BTN_MANUAL = 1   # B -- return to manual (instant override)
+BTN_AUTO        = 0   # A -- enter autonomous mode
+BTN_MANUAL      = 1   # B -- return to manual (instant override)
+BTN_SPEED_BOOST = 3   # Y -- toggle high-speed arm mode
 
 # -- Camera / AprilTag ---------------------------------------------------------
 CAMERA_DEVICE = COLOR_CAMERA_DEVICE
@@ -109,13 +111,16 @@ def step_arm_setpoints(
     lt_raw: float, rt_raw: float,
     lb_held: bool, rb_held: bool,
     dt: float,
+    fast: bool = False,
 ) -> tuple:
+    lift_speed = MAX_LIFT_SPEED_FAST if fast else MAX_LIFT_SPEED
+    grip_speed = MAX_GRIP_SPEED_FAST if fast else MAX_GRIP_SPEED
     lift_sp = _clamp_range(
-        lift_sp + (_trigger_depth(lt_raw) - _trigger_depth(rt_raw)) * MAX_LIFT_SPEED * dt,
+        lift_sp + (_trigger_depth(lt_raw) - _trigger_depth(rt_raw)) * lift_speed * dt,
         MIN_LIFT_RAD, MAX_LIFT_RAD,
     )
     grip_sp = _clamp_range(
-        grip_sp + (int(rb_held) - int(lb_held)) * MAX_GRIP_SPEED * dt,
+        grip_sp + (int(rb_held) - int(lb_held)) * grip_speed * dt,
         MIN_GRIP_RAD, MAX_GRIP_RAD,
     )
     return lift_sp, grip_sp
@@ -313,8 +318,9 @@ def main() -> None:
     loop_period = 1.0 / 50.0
     lift_sp = grip_sp = 0.0
     lx_cmd = ly_cmd = yaw_cmd = 0.0
-    auto_mode = False          # start in manual
-    _a_prev = _b_prev = False
+    auto_mode  = False          # start in manual
+    fast_mode  = False          # start in normal speed
+    _a_prev = _b_prev = _y_prev = False
 
     print("Running at 50 Hz.  Ctrl-C or q/Esc in window to stop.")
 
@@ -333,6 +339,7 @@ def main() -> None:
             rb = bool(joystick.get_button(BTN_RB)) if joystick.get_numbuttons() > BTN_RB else False
             btn_a = bool(joystick.get_button(BTN_AUTO))
             btn_b = bool(joystick.get_button(BTN_MANUAL))
+            btn_y = bool(joystick.get_button(BTN_SPEED_BOOST)) if joystick.get_numbuttons() > BTN_SPEED_BOOST else False
 
             # Mode switching (edge-triggered)
             if btn_a and not _a_prev:
@@ -341,7 +348,11 @@ def main() -> None:
             if btn_b and not _b_prev:
                 auto_mode = False
                 print("\n[MODE] MANUAL")
-            _a_prev, _b_prev = btn_a, btn_b
+            if btn_y and not _y_prev:
+                fast_mode = not fast_mode
+                label = "FAST" if fast_mode else "NORMAL"
+                print(f"\n[SPEED] Arm speed: {label}")
+            _a_prev, _b_prev, _y_prev = btn_a, btn_b, btn_y
 
             # Get latest camera frame + detections
             with _cam_lock:
@@ -385,7 +396,7 @@ def main() -> None:
 
             # Arm command
             lift_sp, grip_sp = step_arm_setpoints(
-                lift_sp, grip_sp, lt, rt, lb, rb, loop_period,
+                lift_sp, grip_sp, lt, rt, lb, rb, loop_period, fast=fast_mode,
             )
 
             drive_ser.write(drive_cmd.encode())
@@ -443,6 +454,10 @@ def main() -> None:
                             f"auto lx={auto_lx:+.3f}  ly={auto_ly:+.3f}  yaw={auto_yaw:+.3f}",
                             (8, 98), font, 0.5, auto_col, 1, cv2.LINE_AA)
 
+                speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
+                speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
+                cv2.putText(frame, speed_str,
+                            (FRAME_W - 160, FRAME_H - 10), font, 0.45, speed_col, 1, cv2.LINE_AA)
                 cv2.putText(frame, "A=auto  B=manual",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 

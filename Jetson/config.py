@@ -174,6 +174,12 @@ MAX_LIFT_RAD =  3.6 # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO 
 MIN_GRIP_RAD = 0   # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
 MAX_GRIP_RAD = 1.85 # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
 
+# Arm speed limits (rad/s) — used by simple_autonomy_controller.py
+MAX_LIFT_SPEED      = 1.0   # normal lift speed [rad/s]
+MAX_GRIP_SPEED      = 1.5   # normal grip speed [rad/s]
+MAX_LIFT_SPEED_FAST = 3.0   # high-speed lift (Y-button toggle) [rad/s]
+MAX_GRIP_SPEED_FAST = 2.0   # high-speed grip (Y-button toggle) [rad/s]
+
 
 # ===========================================================================
 # Section 2 — Arm Pickup Sequence Setpoints
