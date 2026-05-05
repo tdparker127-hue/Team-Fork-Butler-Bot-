@@ -285,11 +285,12 @@ MOTOR_SIGNS = np.array([1.0, 1.0, 1.0, 1.0])
 # TUNING.md reference: "7. Person Detection Thresholds"
 # ===========================================================================
 
-PERSON_CONF    = 0.50   # YOLO minimum confidence
-SLOW_DIST_M    = 2.0    # enter SLOW zone if person within this distance [m]
-STOP_DIST_M    = 0.8    # enter STOP zone if person within this distance [m]
-SLOW_BBOX_FRAC = 0.10   # fallback: SLOW if person bbox > 10% of frame area
-STOP_BBOX_FRAC = 0.25   # fallback: STOP if person bbox > 25% of frame area
+PERSON_CONF      = 0.50   # YOLO minimum confidence
+SLOW_DIST_M      = 2.0    # enter SLOW zone if person within this distance [m]
+STOP_DIST_M      = 0.8    # enter STOP zone if person within this distance [m]
+SLOW_BBOX_FRAC   = 0.10   # fallback: SLOW if person bbox > 10% of frame area
+STOP_BBOX_FRAC   = 0.25   # fallback: STOP if person bbox > 25% of frame area
+PERSON_SLOW_SPEED = 0.25  # max normalized drive speed when in SLOW zone [0-1]
 
 
 # ===========================================================================

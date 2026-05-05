@@ -44,7 +44,9 @@ from Jetson.config import (
     MIN_LIFT_RAD, MAX_LIFT_RAD, MIN_GRIP_RAD, MAX_GRIP_RAD,
     MAX_LIFT_SPEED, MAX_GRIP_SPEED, MAX_LIFT_SPEED_FAST, MAX_GRIP_SPEED_FAST,
     TAG_FAMILY, TAG_SIZE_M, T_CAM_ROBOT, COLOR_CAMERA_DEVICE,
+    PERSON_SLOW_SPEED,
 )
+from Jetson.vision.person_detection import PersonDetector, PersonThreat
 
 # -- Serial ports --------------------------------------------------------------
 DRIVE_PORT = "/dev/ttyACM0"
@@ -450,6 +452,12 @@ def main() -> None:
 
     print("Running at 50 Hz.  Ctrl-C or q/Esc in window to stop.")
 
+    # Person detector — instantiated once so the model loads before the loop
+    print("[PERSON] Loading YOLO person detector...")
+    person_detector = PersonDetector()
+    person_threat   = PersonThreat.CLEAR
+    print("[PERSON] Ready.")
+
     cv2.namedWindow(WIN_NAME)
     cv2.setMouseCallback(WIN_NAME, _mouse_cb)
 
@@ -619,6 +627,23 @@ def main() -> None:
                     lift_sp, grip_sp, lt, rt, lb, rb, loop_period, fast=fast_mode,
                 )
 
+            # ── Person detection (cap drive_cmd before writing) ───────────────
+            if frame is not None:
+                person_threat, _person_dets, _person_annotated = person_detector.detect(frame)
+            else:
+                _person_dets      = []
+                _person_annotated = None
+
+            if person_threat == PersonThreat.STOP:
+                drive_cmd = "lx:0.000;ly:0.000;yaw:0.000;\n"
+            elif person_threat == PersonThreat.SLOW:
+                _parts_raw = {t.split(':')[0]: float(t.split(':')[1])
+                              for t in drive_cmd.strip().rstrip(';').split(';') if ':' in t}
+                _cap = PERSON_SLOW_SPEED
+                drive_cmd = (f"lx:{max(-_cap, min(_cap, _parts_raw.get('lx', 0))):.3f};"
+                             f"ly:{max(-_cap, min(_cap, _parts_raw.get('ly', 0))):.3f};"
+                             f"yaw:{max(-_cap, min(_cap, _parts_raw.get('yaw', 0))):.3f};\n")
+
             drive_ser.write(drive_cmd.encode())
             arm_ser.write(f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n".encode())
 
@@ -630,6 +655,13 @@ def main() -> None:
                 if frame.shape[0] != FRAME_H or frame.shape[1] != FRAME_W:
                     frame = cv2.resize(frame, (FRAME_W, FRAME_H))
                 canvas[:] = frame
+
+                # Person detection bounding boxes (drawn first, behind other overlays)
+                if _person_annotated is not None:
+                    _pa = _person_annotated
+                    if _pa.shape[0] != FRAME_H or _pa.shape[1] != FRAME_W:
+                        _pa = cv2.resize(_pa, (FRAME_W, FRAME_H))
+                    canvas[:] = _pa
 
                 # Tag outlines + robot-frame position labels
                 for det in detections:
@@ -659,6 +691,18 @@ def main() -> None:
                     mode_col = (40, 80, 255)
                 cv2.putText(canvas, mode_str, (8, 30), font, 0.9, (0, 0, 0),    4, cv2.LINE_AA)
                 cv2.putText(canvas, mode_str, (8, 30), font, 0.9, mode_col, 2, cv2.LINE_AA)
+
+                # Person threat banner (top-right, before sidebar)
+                _threat_labels = {
+                    PersonThreat.CLEAR: ("PERSON: CLEAR", (0, 200, 0)),
+                    PersonThreat.SLOW:  ("PERSON: SLOW",  (0, 165, 255)),
+                    PersonThreat.STOP:  ("PERSON: STOP",  (0, 0, 220)),
+                }
+                _thr_str, _thr_col = _threat_labels[person_threat]
+                (_thr_w, _thr_h), _ = cv2.getTextSize(_thr_str, font, 0.75, 2)
+                _thr_x = OVERLAY_X - _thr_w - 8
+                cv2.putText(canvas, _thr_str, (_thr_x, 56), font, 0.75, (0, 0, 0),  4, cv2.LINE_AA)
+                cv2.putText(canvas, _thr_str, (_thr_x, 56), font, 0.75, _thr_col, 2, cv2.LINE_AA)
 
                 # Speed mode indicator -- keep left of the sidebar overlay
                 spd_str = "FAST ARM" if fast_mode else "normal arm"
