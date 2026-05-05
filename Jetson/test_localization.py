@@ -60,6 +60,7 @@ from Jetson.config import (
 )
 from Jetson.localization.ekf_localizer import EKFLocalizer, GatingMethod
 from Jetson.main import robot_controller as rc
+from Jetson.map_viewer import MapViewer
 import enum
 
 try:
@@ -124,6 +125,12 @@ BAUD_RATE  = 115200
 # When True, do NOT run robot_controller.py simultaneously — they would
 # fight over the serial port and cause the disconnect error.
 ENABLE_DRIVE = True
+
+# Set True to open the pygame 2D map window showing robot pose + trail.
+ENABLE_MAP_VIEWER = True
+
+# Set True to show the OpenCV camera window with tag overlays.
+ENABLE_CV_WINDOW = True
 # ---------------------------------------------------------------------------
 
 
@@ -286,6 +293,13 @@ def main():
     print("Press 'q' or Esc to quit, 'r' to reset EKF, 's' to print state.")
     print("-" * 60)
 
+    # Map viewer
+    map_viewer = None
+    if ENABLE_MAP_VIEWER:
+        map_viewer = MapViewer()
+        map_viewer.start()
+        print("[MAP] Map viewer started.")
+
     fps = 0.0
     t_prev = time.monotonic()
     raw_result = None
@@ -365,24 +379,29 @@ def main():
         ex, ey, etheta, _ = ekf.get_pose()
         enc_data = rc.get_enc()
         imu_data = rc.get_imu("drive")
-        _draw_tag_boxes(frame, detections, camera_params)
-        _draw_overlay(frame, raw_result, (ex, ey, etheta), fps, enc_data, imu_data)
-        # mode label — bottom centre
-        cv2.putText(frame, f"mode: {TEST_MODE.value}",
-                    (frame.shape[1] // 2 - 80, frame.shape[0] - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3, cv2.LINE_AA)
-        cv2.putText(frame, f"mode: {TEST_MODE.value}",
-                    (frame.shape[1] // 2 - 80, frame.shape[0] - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 180, 255), 1, cv2.LINE_AA)
 
-        cv2.imshow("Localization Test  (q=quit  r=reset EKF  s=print state)", frame)
+        # Update map viewer with latest EKF pose (trail is appended automatically)
+        if map_viewer is not None:
+            map_viewer.update(ex, ey, etheta)
+
+        if ENABLE_CV_WINDOW:
+            _draw_tag_boxes(frame, detections, camera_params)
+            _draw_overlay(frame, raw_result, (ex, ey, etheta), fps, enc_data, imu_data)
+            # mode label — bottom centre
+            cv2.putText(frame, f"mode: {TEST_MODE.value}",
+                        (frame.shape[1] // 2 - 80, frame.shape[0] - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3, cv2.LINE_AA)
+            cv2.putText(frame, f"mode: {TEST_MODE.value}",
+                        (frame.shape[1] // 2 - 80, frame.shape[0] - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 180, 255), 1, cv2.LINE_AA)
+            cv2.imshow("Localization Test  (q=quit  r=reset EKF  s=print state)", frame)
 
         # ---- FPS ----
         fps = 0.9 * fps + 0.1 * (1.0 / max(dt, 1e-6))
         t_prev = now
 
         # ---- Key handling ----
-        key = cv2.waitKey(1) & 0xFF
+        key = cv2.waitKey(1) & 0xFF if ENABLE_CV_WINDOW else (0xFF & 0xFF)
         if key in (ord('q'), 27):    # q or Esc
             break
         elif key == ord('r'):
@@ -402,7 +421,10 @@ def main():
             print(f"      P_vel  diag: {np.diag(P_vel)}")
 
     cap.release()
-    cv2.destroyAllWindows()
+    if ENABLE_CV_WINDOW:
+        cv2.destroyAllWindows()
+    if map_viewer is not None:
+        map_viewer.stop()
     print("\nDone.")
 
 
