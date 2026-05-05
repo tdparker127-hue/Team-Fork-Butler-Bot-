@@ -101,7 +101,7 @@ SEQ_REACH_PIX_X    = 0.06            # lateral pixel tolerance (normalized [-1,1
 SEQ_YAW_TOL_DEG    = 3.0             # heading tolerance for turn_yaw steps [deg]
 SEQ_YAW_HOLD_S     = 0.3             # hold within yaw tolerance before advancing [s]
 K_TURN_DEG         = 0.025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
-                                      #   40 deg error → 1.0 (full speed)
+#   40 deg error → 1.0 (full speed)
 
 
 # ─── MISSIONS ─────────────────────────────────────────────────────────────────
@@ -116,18 +116,30 @@ K_TURN_DEG         = 0.025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_T
 #
 MISSIONS = {
     "Full Pickup": [
-        {"type": "set_arm",   "lift": 3.0,  "grip": 1.85},
-        {"type": "drive_tag", "tag": 6,     "stop_dist": 0.5, "lat_off": 0.0},
-        {"type": "drive_arm", "tag": 6,     "stop_dist": 0.3, "lat_off": 0.0,
-                              "lift": 1.5,  "grip": 1.85},
-        {"type": "set_arm",   "grip": 0.0},
+        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {"type": "drive_tag", "tag": 6, "stop_dist": 0.5, "lat_off": 0.0},
+        {
+            "type": "drive_arm",
+            "tag": 6,
+            "stop_dist": 0.3,
+            "lat_off": 0.0,
+            "lift": 1.5,
+            "grip": 1.85,
+        },
+        {"type": "set_arm", "grip": 0.0},
     ],
     "Approach Only": [
-        {"type": "set_arm",   "lift": 3.0,  "grip": 1.85},
-        {"type": "drive_tag", "tag": 6,     "stop_dist": 0.5, "lat_off": 0.0},
+        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {"type": "drive_tag", "tag": 6, "stop_dist": 0.5, "lat_off": 0.0},
     ],
     "Arm Home": [
-        {"type": "set_arm",   "lift": 0.0,  "grip": 0.0},
+        {"type": "set_arm", "lift": 0.0, "grip": 0.0},
+    ],
+    "April Tag Only": [
+        {"type": "drive_tag", "tag": 6, "stop_dist": 0.5, "lat_off": 0.0},
+    ],
+    "Turn in Place": [
+        {"type": "turn_yaw", "yaw_deg": 90.0, "tol_deg": 2.0, "hold_s": 0.5},
     ],
 }
 
