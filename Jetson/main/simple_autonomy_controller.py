@@ -399,10 +399,16 @@ def main() -> None:
                     cv2.putText(frame, f"id={det.tag_id}", (cx_t - 20, cy_t - 10),
                                 font, 0.6, col, 2, cv2.LINE_AA)
                     if det.pose_t is not None:
-                        p = R_cr @ np.array(det.pose_t, dtype=float).ravel() + t_cr
-                        cv2.putText(frame, f"x={p[0]:+.2f} y={p[1]:+.2f} m",
-                                    (cx_t - 55, cy_t + 18),
+                        p_cam = np.array(det.pose_t, dtype=float).ravel()
+                        p     = R_cr @ p_cam + t_cr
+                        # Robot-frame (after transform)
+                        cv2.putText(frame, f"rob x={p[0]:+.2f} y={p[1]:+.2f} m",
+                                    (cx_t - 70, cy_t + 18),
                                     font, 0.45, (0, 0, 255), 1, cv2.LINE_AA)
+                        # Raw camera-frame (before transform): cam +X=right, +Y=down, +Z=forward
+                        cv2.putText(frame, f"cam x={p_cam[0]:+.2f} z={p_cam[2]:+.2f} m",
+                                    (cx_t - 70, cy_t + 34),
+                                    font, 0.45, (255, 180, 0), 1, cv2.LINE_AA)
 
                 # Mode banner
                 mode_str = f"AUTO  (tag {TARGET_TAG_ID})" if auto_mode else "MANUAL"

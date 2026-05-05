@@ -64,8 +64,8 @@ T_CAM_ROBOT: np.ndarray = np.array(
         #   cam Z (forward) → robot  Y (forward) ............. col 2 = [0,  1,  0]
         # Translation: camera position in robot frame [right, forward, up]
         [1.0, 0.0, 0.0, 0.00],  #Original values These seem to be for the camera down below not the depth camera?
-        [0.0, 1.0, 0.0, 0.28],
-        [0.0, 0.0, 1.0, 0.2155],
+        [0.0, 0.0, 1.0, 0.28],
+        [0.0, -1.0, 0.0, 0.2155],
         [0.0, 0.0, 0.0, 1.00],
     ],
     dtype=float,
