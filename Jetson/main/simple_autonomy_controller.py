@@ -80,13 +80,14 @@ FRAME_W, FRAME_H, FRAME_FPS = 640, 360, 15
 TARGET_TAG_ID  = 6      # AprilTag ID to drive toward
 STOP_DIST_M    = 0.5    # desired forward distance from tag face [m]
 K_FWD          = 0.6    # forward P-gain  (normalized speed / m error)
-K_LAT          = 1.0    # lateral P-gain  (normalized speed / m)
-K_YAW          = 0.5    # yaw P-gain from lateral error
-# Goal offset relative to tag center (robot frame: right=+X, forward=+Y).
-# Use these to shift the target position when the tag appears off-center.
-# e.g. GOAL_OFFSET_X = 0.05 means stop 5 cm to the right of the tag center.
-GOAL_OFFSET_X  = -0.27   # lateral offset [m]  (right = +, left = -)
-GOAL_OFFSET_Y  = 0.10  # forward offset [m]  (further = +, closer = -)
+K_LAT          = 1.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
+K_YAW          = 0.8    # yaw P-gain from normalized pixel error
+# Goal offset relative to tag center.
+# GOAL_OFFSET_X: normalized pixel units [-1, 1]. 0 = aim at pixel center.
+#   positive = aim to the right of tag center, negative = aim to the left.
+# GOAL_OFFSET_Y: meters. Adds to STOP_DIST_M (positive = stop further away).
+GOAL_OFFSET_X  = 0.0    # lateral pixel offset (right = +, left = -)
+GOAL_OFFSET_Y  = 0.0    # forward offset [m]  (further = +, closer = -)
 
 
 # -- Helper functions ----------------------------------------------------------
@@ -347,21 +348,26 @@ def main() -> None:
                 frame      = _cam_frame.copy() if _cam_frame is not None else None
                 detections = list(_cam_detections)
 
-            # Locate target tag in robot frame [right, forward, up]
-            tag_pos_rob = None
+            # Locate target tag: robot-frame depth + pixel centroid for lateral
+            tag_pos_rob   = None
+            tag_pixel_cx  = None   # normalized pixel x: -1=left edge, 0=center, +1=right edge
             for det in detections:
                 if det.tag_id == TARGET_TAG_ID and det.pose_t is not None:
-                    p_cam       = np.array(det.pose_t, dtype=float).ravel()
-                    tag_pos_rob = R_cr @ p_cam + t_cr
+                    p_cam         = np.array(det.pose_t, dtype=float).ravel()
+                    tag_pos_rob   = R_cr @ p_cam + t_cr
+                    pts           = det.corners
+                    raw_cx        = float(pts[:, 0].mean())
+                    tag_pixel_cx  = (raw_cx - FRAME_W / 2.0) / (FRAME_W / 2.0)  # [-1, 1]
                     break
 
             # Autonomous effort -- computed always so it can be displayed in any mode
-            if tag_pos_rob is not None:
+            # Lateral / yaw use pixel centroid; forward uses 3-D depth from transform
+            if tag_pos_rob is not None and tag_pixel_cx is not None:
                 _err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
-                _err_lat = tag_pos_rob[0] - GOAL_OFFSET_X
-                auto_lx  = max(-1.0, min(1.0, -K_LAT * _err_lat))
+                _err_lat = tag_pixel_cx - GOAL_OFFSET_X   # GOAL_OFFSET_X now in norm-pixel units
+                auto_lx  = max(-1.0, min(1.0,  K_LAT * _err_lat))
                 auto_ly  = max(-1.0, min(1.0, -K_FWD * _err_fwd))
-                auto_yaw = max(-1.0, min(1.0, -K_YAW * _err_lat))
+                auto_yaw = max(-1.0, min(1.0,  K_YAW * _err_lat))
             else:
                 auto_lx = auto_ly = auto_yaw = 0.0
 
@@ -418,9 +424,8 @@ def main() -> None:
 
                 # Auto status line
                 if auto_mode and tag_pos_rob is not None:
-                    dist = math.hypot(tag_pos_rob[0], tag_pos_rob[1])
                     cv2.putText(frame,
-                                f"dist={dist:.2f}m  lat={tag_pos_rob[0]:+.2f}m  fwd={tag_pos_rob[1]:.2f}m",
+                                f"fwd={tag_pos_rob[1]:.2f}m  pix_x={tag_pixel_cx:+.3f}",
                                 (8, 58), font, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
                 elif auto_mode:
                     cv2.putText(frame, "Tag not visible -- stopped",
