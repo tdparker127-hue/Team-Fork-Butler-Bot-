@@ -160,8 +160,8 @@ TAG_WORLD_POSES = {
 
 MIN_LIFT_RAD = 0 # encoder pos when fully lowered  (TUNING: 0.0 ✅ — TODO update)
 MAX_LIFT_RAD =  3.5 # encoder pos when fully raised   (TUNING: 2.2 ✅ — TODO update)
-MIN_GRIP_RAD = -1.85   # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
-MAX_GRIP_RAD = 0 # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
+MIN_GRIP_RAD = 0   # encoder pos when fully closed   (TUNING: -2.0 ⚠️ TODO)
+MAX_GRIP_RAD = 1.85 # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
 
 
 # ===========================================================================
@@ -172,7 +172,7 @@ MAX_GRIP_RAD = 0 # encoder pos when fully open     (TUNING: 2.0  ⚠️ TODO)
 ARM_LOWER_LIFT   = -2.5   # lift position for reaching the tray [rad]
 ARM_GRIP_CLOSE   =  0.0   # gripper closed position [rad]
 ARM_CARRY_LIFT   =  1.5   # lift position while carrying [rad]
-ARM_GRIP_OPEN    =  -1.85   # gripper open position for release [rad]
+ARM_GRIP_OPEN    =  1.85   # gripper open position for release [rad]
 
 ARM_LOWER_TIME_S =  0.1   # wait after sending lower command [s]
 ARM_GRIP_TIME_S  =  0.1   # wait after sending grip command [s]
