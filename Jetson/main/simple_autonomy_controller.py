@@ -77,7 +77,7 @@ CALIB_FILE    = Path(__file__).parent.parent / "vision" / "camera_calibration_li
 FRAME_W, FRAME_H, FRAME_FPS = 640, 360, 15
 
 # -- Autonomous control --------------------------------------------------------
-TARGET_TAG_ID = 1      # AprilTag ID to drive toward
+TARGET_TAG_ID = 6      # AprilTag ID to drive toward
 STOP_DIST_M   = 0.5    # desired forward distance from tag face [m]
 K_FWD         = 0.6    # forward P-gain  (normalized speed / m error)
 K_LAT         = 1.0    # lateral P-gain  (normalized speed / m)
