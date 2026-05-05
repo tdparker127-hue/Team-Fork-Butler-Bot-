@@ -449,6 +449,7 @@ def main():
         frame = (undistort(raw, cam_mat, dist)
                  if (not args.no_undistort and cam_mat is not None)
                  else raw)
+        raw_frame = frame.copy()  # unmodified capture — never gets tinted or drawn on
         fh, fw = frame.shape[:2]
         state["cam_w"] = fw
 
@@ -456,7 +457,7 @@ def main():
         if state["click"] is not None:
             cx, cy = state["click"]
             state["click"] = None
-            mean_hsv, std_hsv = sample_hsv(frame, cx, cy)
+            mean_hsv, std_hsv = sample_hsv(raw_frame, cx, cy)
             state["last_sample"] = mean_hsv
             sel = state["selected"]
             state["samples"].setdefault(sel, []).append(mean_hsv.tolist())
@@ -480,7 +481,7 @@ def main():
         if "lower" in entry and "upper" in entry:
             lo_arr = np.array(entry["lower"], dtype=np.uint8)
             hi_arr = np.array(entry["upper"], dtype=np.uint8)
-            hsv  = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hsv  = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2HSV)
             mask = cv2.inRange(hsv, lo_arr, hi_arr)
             tint = frame.copy()
             tint[mask > 0] = np.clip(
@@ -539,7 +540,7 @@ def main():
                 lo_d  = np.array(lentry["lower"], dtype=np.uint8)
                 hi_d  = np.array(lentry["upper"], dtype=np.uint8)
                 roi_d = lentry.get("roi", None)
-                dets  = _find_blobs(frame, lbl, lo_d, hi_d, roi=roi_d)
+                dets  = _find_blobs(raw_frame, lbl, lo_d, hi_d, roi=roi_d)
                 for d in dets:
                     bx, by, bw, bh = d["bbox"]
                     dcx, dcy = d["centroid"]
