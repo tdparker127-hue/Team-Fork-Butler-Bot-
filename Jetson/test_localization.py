@@ -377,6 +377,19 @@ def main():
         cam_pos, R_wc, n_used = localize_camera(detections, TAG_WORLD_POSES)
         if cam_pos is not None:
             rx, ry, ryaw = robot_pose_from_camera(cam_pos, R_wc)
+            
+            # Print both raw and negated to see which matches reality
+            print(f"\n--- FRAME DEBUG ---")
+            print(f"Raw EKF output:  x={rx:+.3f}  y={ry:+.3f}  yaw={math.degrees(ryaw):+.1f}°")
+            print(f"Negated (flip):  x={-rx:+.3f}  y={-ry:+.3f}  yaw={math.degrees(ryaw+math.pi):+.1f}°")
+            print(f"Expected: (stand at known arena position and compare)")
+            print(f"Nearest tag(s) in config.py for reference:")
+            for det in detections:
+                if det.tag_id in TAG_WORLD_POSES:
+                    tp = TAG_WORLD_POSES[det.tag_id]["position"]
+                    print(f"  Tag {det.tag_id}: x={tp[0]:.3f}  y={tp[1]:.3f}")
+        if cam_pos is not None:
+            rx, ry, ryaw = robot_pose_from_camera(cam_pos, R_wc)
             raw_result = (rx, ry, ryaw, n_used)
 
             # ---- AprilTag update (VISION_ONLY or FULL) ----
