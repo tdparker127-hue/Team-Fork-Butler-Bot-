@@ -355,14 +355,19 @@ def main() -> None:
                     tag_pos_rob = R_cr @ p_cam + t_cr
                     break
 
+            # Autonomous effort -- computed always so it can be displayed in any mode
+            if tag_pos_rob is not None:
+                _err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
+                _err_lat = tag_pos_rob[0] - GOAL_OFFSET_X
+                auto_lx  = max(-1.0, min(1.0, -K_LAT * _err_lat))
+                auto_ly  = max(-1.0, min(1.0, -K_FWD * _err_fwd))
+                auto_yaw = max(-1.0, min(1.0, -K_YAW * _err_lat))
+            else:
+                auto_lx = auto_ly = auto_yaw = 0.0
+
             # Drive command
             if auto_mode and tag_pos_rob is not None:
-                err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
-                err_lat = tag_pos_rob[0] - GOAL_OFFSET_X
-                lx_out  = max(-1.0, min(1.0, -K_LAT * err_lat))
-                ly_out  = max(-1.0, min(1.0, -K_FWD * err_fwd))
-                yaw_out = max(-1.0, min(1.0, -K_YAW * err_lat))
-                drive_cmd = f"lx:{lx_out:.3f};ly:{ly_out:.3f};yaw:{yaw_out:.3f};\n"
+                drive_cmd = f"lx:{auto_lx:.3f};ly:{auto_ly:.3f};yaw:{auto_yaw:.3f};\n"
             elif auto_mode:
                 drive_cmd = "lx:0.000;ly:0.000;yaw:0.000;\n"   # tag lost -- stop
             else:
@@ -415,12 +420,17 @@ def main() -> None:
                     cv2.putText(frame, "Tag not visible -- stopped",
                                 (8, 58), font, 0.5, (80, 80, 255), 1, cv2.LINE_AA)
 
-                # Control output -- always shown
+                # Actual control output (what is being sent)
                 _parts = {t.split(':')[0]: float(t.split(':')[1])
                           for t in drive_cmd.strip().rstrip(';').split(';') if ':' in t}
                 cv2.putText(frame,
                             f"cmd  lx={_parts.get('lx',0):+.3f}  ly={_parts.get('ly',0):+.3f}  yaw={_parts.get('yaw',0):+.3f}",
                             (8, 78), font, 0.5, (200, 255, 200), 1, cv2.LINE_AA)
+                # Autonomous planned effort -- always shown
+                auto_col = (200, 200, 255) if tag_pos_rob is not None else (100, 100, 180)
+                cv2.putText(frame,
+                            f"auto lx={auto_lx:+.3f}  ly={auto_ly:+.3f}  yaw={auto_yaw:+.3f}",
+                            (8, 98), font, 0.5, auto_col, 1, cv2.LINE_AA)
 
                 cv2.putText(frame, "A=auto  B=manual",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
