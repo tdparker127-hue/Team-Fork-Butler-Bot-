@@ -303,7 +303,7 @@ def main():
         frame = cv2.undistort(frame, K, dist)
 
         # ---- Flip vertical (camera mounted upside-down) ----
-        frame = cv2.flip(frame, 0)
+        frame = cv2.flip(frame, -1)
 
         # ---- AprilTag detection ----
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
