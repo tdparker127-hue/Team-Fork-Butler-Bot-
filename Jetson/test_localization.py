@@ -93,7 +93,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Configuration — edit these to match your setup
 # ---------------------------------------------------------------------------
-CAMERA_DEVICE  = DEPTH_CAMERA_DEVICE   # imported from Jetson/config.py
+CAMERA_DEVICE  = COLOR_CAMERA_DEVICE   # imported from Jetson/config.py
 CALIB_FILE     = Path(__file__).parent / "vision/camera_calibration_live.npz"
 
 FRAME_W = 640

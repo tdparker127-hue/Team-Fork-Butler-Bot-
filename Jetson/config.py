@@ -58,10 +58,17 @@ T_CAM_DEPTH: np.ndarray = np.array(
     dtype=float,
 )
 T_CAM_ROBOT: np.ndarray = np.array([
-    [1.0, 0.0, 0.0,  0.028],   
-    [0.0, 1.0, 0.0,  0.03],   
-    [0.0, 0.0, 1.0,  0.58], 
-    [0.0, 0.0, 0.0,  1.00],
+    # Rotation: maps camera-frame vectors into robot-frame vectors.
+    # Camera frame (OpenCV): +X right, +Y down, +Z forward (into scene)
+    # Robot  frame:          +X right, +Y forward, +Z up
+    #   cam X (right)   → robot  X (right) .............. col 0 = [1,  0,  0]
+    #   cam Y (down)    → robot -Z (-up) ................. col 1 = [0,  0, -1]
+    #   cam Z (forward) → robot  Y (forward) ............. col 2 = [0,  1,  0]
+    # Translation: camera position in robot frame [right, forward, up]
+    [1.0,  0.0, 0.0, 0.028],
+    [0.0,  0.0, 1.0, 0.03 ],
+    [0.0, -1.0, 0.0, 0.58 ],
+    [0.0,  0.0, 0.0, 1.00 ],
 ], dtype=float)
 
 
@@ -250,8 +257,8 @@ STOP_BBOX_FRAC = 0.25   # fallback: STOP if person bbox > 25% of frame area
 # Section 8 — Camera Devices
 # ===========================================================================
 
-COLOR_CAMERA_DEVICE = "/dev/video0"    # RGB camera (AprilTags / color blob)
-DEPTH_CAMERA_DEVICE = "/dev/video6"   # Depth / secondary RGB camera
+COLOR_CAMERA_DEVICE = "/dev/video6"    # RGB camera (AprilTags / color blob)
+DEPTH_CAMERA_DEVICE = "/dev/video0"   # Depth / secondary RGB camera
 
 
 # ===========================================================================
