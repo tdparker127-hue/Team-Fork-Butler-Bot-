@@ -107,7 +107,7 @@ DETECT_REFINE      = 1
 # SIGMA_TAG_XY, SIGMA_TAG_YAW
 
 # EKF gating — switch to GatingMethod.EUCLIDEAN if you prefer fixed thresholds
-GATING = GatingMethod.MAHALANOBIS
+GATING = GatingMethod.EUCLIDEAN
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
 TEST_MODE = TestMode.FULL
