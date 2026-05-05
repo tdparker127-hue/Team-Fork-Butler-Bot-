@@ -37,6 +37,7 @@ WIN_H   = 760
 MARGIN  = 70     # pixels of padding around the arena drawing area
 LEGEND_W = 185   # width reserved on the right for the legend
 FPS     = 30
+VIEW_MARGIN_M = 1.5  # extra world-space margin around the arena for debugging drift
 
 # ---------------------------------------------------------------------------
 # Colour palette  (R, G, B) or (R, G, B, A)
@@ -120,15 +121,26 @@ class MapViewer:
 
         xs = [p["x"] for p in boundary]
         ys = [p["y"] for p in boundary]
-        self._ax0 = min(xs);  self._ay0 = min(ys)
-        self._aw  = max(xs) - self._ax0
-        self._ah  = max(ys) - self._ay0
+        arena_x0 = min(xs)
+        arena_y0 = min(ys)
+        arena_x1 = max(xs)
+        arena_y1 = max(ys)
+
+        self._arena_x0 = arena_x0
+        self._arena_y0 = arena_y0
+        self._arena_w = arena_x1 - arena_x0
+        self._arena_h = arena_y1 - arena_y0
+
+        self._ax0 = arena_x0 - VIEW_MARGIN_M
+        self._ay0 = arena_y0 - VIEW_MARGIN_M
+        self._aw  = self._arena_w + 2 * VIEW_MARGIN_M
+        self._ah  = self._arena_h + 2 * VIEW_MARGIN_M
         self._boundary_pts = boundary
 
         # Robot state
         init_pos     = init.get("position", {})
-        self._rx     = float(init_pos.get("x", self._aw / 2))
-        self._ry     = float(init_pos.get("y", self._ah / 2))
+        self._rx     = float(init_pos.get("x", arena_x0 + self._arena_w / 2))
+        self._ry     = float(init_pos.get("y", arena_y0 + self._arena_h / 2))
         self._rtheta = float(init.get("heading", 0.0))
         self._init_x = self._rx
         self._init_y = self._ry
