@@ -427,11 +427,18 @@ def main() -> None:
                                     (cx_t - 70, cy_t + 34),
                                     font, 0.45, (255, 180, 0), 1, cv2.LINE_AA)
 
-                # Mode banner
+                # Mode banner (top-left)
                 mode_str = f"AUTO  (tag {TARGET_TAG_ID})" if auto_mode else "MANUAL"
                 mode_col = (0, 220, 60) if auto_mode else (40, 80, 255)
                 cv2.putText(frame, mode_str, (8, 30), font, 0.9, (0, 0, 0),    4, cv2.LINE_AA)
                 cv2.putText(frame, mode_str, (8, 30), font, 0.9, mode_col, 2, cv2.LINE_AA)
+
+                # Speed mode indicator (top-right)
+                spd_str = "FAST ARM" if fast_mode else "normal arm"
+                spd_col = (0, 80, 255) if fast_mode else (160, 160, 160)
+                (spd_w, _), _ = cv2.getTextSize(spd_str, font, 0.7, 2)
+                cv2.putText(frame, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, (0, 0, 0),  4, cv2.LINE_AA)
+                cv2.putText(frame, spd_str, (FRAME_W - spd_w - 8, 30), font, 0.7, spd_col,    2, cv2.LINE_AA)
 
                 # Auto status line
                 if auto_mode and tag_pos_rob is not None:
