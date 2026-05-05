@@ -49,7 +49,7 @@ BAUD_RATE  = 115200
 # MAX_FORWARD / MAX_TURN scaling lives on the ESP32 (robot_drive.h).
 # The Jetson only applies a deadband and sends normalized [-1, 1] values.
 DEADBAND = 0.1  # joystick dead-zone
-
+MAX_Drive_Slew = 4.0 # max change in drive command per second (for smoother control response)
 # ── Arm setpoint limits (radians) ────────────────────────────────────────────
 # Imported from Jetson/config.py — edit there.
 # Must also match MIN/MAX_LIFT_RAD and MIN/MAX_GRIP_RAD in include/arm_drive.h.
@@ -142,7 +142,8 @@ def compute_drive_command(lx: float, ly: float, rx: float) -> str:
 def _scale(value: float, deadband: float = DEADBAND) -> float:
     """Apply deadband and return the raw value unchanged otherwise."""
     return 0.0 if abs(value) < deadband else value
-
+def _slew(target: float, current: float, max_delta: float) -> float:
+    return current + max(-max_delta, min(max_delta, target - current))
 
 # ── IMU state shared between reader threads and main loop ────────────────────
 _imu_lock = threading.Lock()
@@ -231,8 +232,8 @@ def _serial_reader(ser: serial.Serial, label: str) -> None:
                     _enc_data["timestamp"] = time.monotonic()
                 continue
             if line.startswith("DBG:"):
-               # pass  # ignore debug telemetry silently
-                print(f"[{label}] {line[4:]}")
+               pass  # ignore debug telemetry silently
+                #print(f"[{label}] {line[4:]}")
             elif line in ("Failed", "Sent"):
                 pass  # ESP-NOW wireless noise — suppress when no controller paired
             else:
@@ -335,8 +336,10 @@ def main() -> None:
 
     # Arm setpoint state — Jetson owns the incremental integration
     lift_sp = 0.0
-    grip_sp = MAX_GRIP_RAD
-
+    grip_sp = 0.0
+    lx_cmd = 0.0
+    ly_cmd = 0.0
+    yaw_cmd = 0.0
     try:
         while True:
             t0 = time.monotonic()
@@ -365,8 +368,13 @@ def main() -> None:
                 else False
             )
 
-            drive_cmd = compute_drive_command(lx, ly, rx)
-
+           # drive_cmd = compute_drive_command(lx, ly, rx)
+            # Slew drive commands for smoother response
+            max_step = MAX_Drive_Slew * loop_period
+            lx_cmd = _slew(lx, lx_cmd, max_step)
+            ly_cmd = _slew(ly, ly_cmd, max_step)
+            yaw_cmd = _slew(rx, yaw_cmd, max_step)
+            drive_cmd = compute_drive_command(lx_cmd, ly_cmd, yaw_cmd)
             # Step arm setpoints by one dt increment then build command string
             lift_sp, grip_sp = step_arm_setpoints(
                 lift_sp, grip_sp, lt, rt, lb, rb, loop_period
