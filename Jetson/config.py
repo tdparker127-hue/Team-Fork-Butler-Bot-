@@ -197,6 +197,39 @@ ARM_LIFT_TIME_S  =  0.1   # wait after lifting [s]
 
 
 # ===========================================================================
+# Section 2b — Autonomous Sequence (X-button)
+# simple_autonomy_controller.py state machine
+# ===========================================================================
+# Step 1: arm moves to approach position
+SEQ_LIFT_APPROACH   = 3.0    # lift raised for approach [rad]
+SEQ_GRIP_APPROACH   = 1.85   # grip open for approach [rad]
+SEQ_ARM_SETTLE_S    = 2.0    # time to wait for arm to settle [s]
+
+# Step 2: drive toward this tag
+SEQ_TAG_1_ID        = 6      # AprilTag ID for first drive target
+SEQ_TAG_1_STOP_DIST = 0.5    # desired stop distance [m]
+SEQ_TAG_1_OFFSET_X  = 0.0    # pixel lateral offset (same units as GOAL_OFFSET_X)
+
+# Step 3: lower lift slightly (e.g. to tray height)
+SEQ_LIFT_LOWER      = 1.5    # lift position after arriving at tag 1 [rad]
+SEQ_LIFT_LOWER_WAIT = 1.5    # time to wait for lift to settle [s]
+
+# Step 4: drive toward second tag (can be same tag)
+SEQ_TAG_2_ID        = 6      # AprilTag ID for second drive target
+SEQ_TAG_2_STOP_DIST = 0.3    # desired stop distance [m] (closer for deposit)
+SEQ_TAG_2_OFFSET_X  = 0.0    # pixel lateral offset
+
+# Step 5: release/drop (close or open gripper to drop position)
+SEQ_GRIP_DROP       = 0.0    # grip setpoint for deposit/release [rad]
+SEQ_DROP_WAIT       = 1.5    # time to wait for gripper action [s]
+
+# Arrival tolerances (both must be satisfied for SEQ_HOLD_S seconds)
+SEQ_REACH_FWD_M     = 0.08   # forward error threshold [m]
+SEQ_REACH_PIX_X     = 0.06   # pixel centering threshold (normalized [-1,1])
+SEQ_HOLD_S          = 0.4    # must stay within tolerance this long before advancing
+
+
+# ===========================================================================
 # Section 5 — Waypoint Navigation Gains
 # TUNING.md reference: "5. Waypoint Navigation Gains"
 # ===========================================================================

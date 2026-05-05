@@ -24,6 +24,7 @@ OpenCV window:
   - "A=auto  B=manual" hint at bottom
 """
 
+import enum
 import math
 import threading
 import time
@@ -69,8 +70,9 @@ AXIS_LT = 4  # Left trigger  -> lift down
 AXIS_RT = 5  # Right trigger -> lift up
 BTN_LB     = 6   # grip close
 BTN_RB     = 7   # grip open
-BTN_AUTO        = 0   # A -- enter autonomous mode
-BTN_MANUAL      = 1   # B -- return to manual (instant override)
+BTN_AUTO        = 0   # A -- enter single-tag autonomous mode
+BTN_MANUAL      = 1   # B -- return to manual (instant override, cancels sequence)
+BTN_SEQ         = 2   # X -- start full autonomous sequence
 BTN_SPEED_BOOST = 3   # Y -- toggle high-speed arm mode
 
 # -- Camera / AprilTag ---------------------------------------------------------
@@ -90,6 +92,57 @@ K_YAW          = 0.8    # yaw P-gain from normalized pixel error
 # GOAL_OFFSET_Y: meters. Adds to STOP_DIST_M (positive = stop further away).
 GOAL_OFFSET_X  = 0.0    # lateral pixel offset (right = +, left = -)
 GOAL_OFFSET_Y  = 0.0    # forward offset [m]  (further = +, closer = -)
+
+
+# ─── Sequence runner constants ─────────────────────────────────────────────────
+SEQ_ARM_LIFT_SPEED = MAX_LIFT_SPEED   # max lift slew rate during sequence [rad/s]
+SEQ_ARM_GRIP_SPEED = MAX_GRIP_SPEED   # max grip slew rate during sequence [rad/s]
+SEQ_ARM_TOL_RAD    = 0.05             # arm arrival tolerance [rad]
+SEQ_DRIVE_HOLD_S   = 0.4             # hold within drive tolerance this long before advancing [s]
+SEQ_REACH_FWD_M    = 0.08            # forward error threshold [m]
+SEQ_REACH_PIX_X    = 0.06            # lateral pixel tolerance (normalized [-1,1])
+SEQ_YAW_TOL_DEG    = 3.0             # heading tolerance for turn_yaw steps [deg]
+SEQ_YAW_HOLD_S     = 0.3             # hold within yaw tolerance before advancing [s]
+K_TURN_DEG         = 0.025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
+                                      #   40 deg error → 1.0 (full speed)
+
+
+# ─── AUTONOMOUS SEQUENCE ───────────────────────────────────────────────────────
+# Edit this list to define the X-button autonomous sequence.
+# Steps execute in order; B button cancels immediately.
+#
+# Step types:
+#
+#   "drive_tag"  — drive toward an AprilTag until centered and at stop_dist
+#       tag        : int    AprilTag ID
+#       stop_dist  : float  desired forward stop distance [m]
+#       lat_off    : float  lateral pixel goal offset [-1..1], 0 = tag center
+#       hold_s     : float  (optional) seconds to hold within tolerance
+#
+#   "set_arm"    — rate-limited slew of lift and/or grip; waits for arrival
+#       lift       : float  target lift position [rad]  (omit to leave unchanged)
+#       grip       : float  target grip position [rad]  (omit to leave unchanged)
+#
+#   "drive_arm"  — drive_tag AND set_arm simultaneously;
+#                  advances only when BOTH are done
+#       (all drive_tag params + all set_arm params)
+#
+#   "turn_yaw"   — rotate in place to a given IMU heading
+#       yaw_deg    : float  target heading [degrees, IMU frame]
+#       tol_deg    : float  (optional) tolerance [deg]
+#       hold_s     : float  (optional) hold time [s]
+#
+SEQUENCE = [
+    # 1. Raise arm to carry height, open gripper
+    # {"type": "set_arm",   "lift": 3.0,  "grip": 1.85},
+    # 2. Drive toward tag 6, stop 0.5 m away
+    {"type": "drive_tag", "tag": 6,     "stop_dist": 0.5, "lat_off": 0.0},
+    # 3. Simultaneously close in and lower lift
+    # {"type": "drive_arm", "tag": 6,     "stop_dist": 0.3, "lat_off": 0.0,
+    #                       "lift": 1.5,  "grip": 1.85},
+    # # 4. Release gripper
+    # {"type": "set_arm",   "grip": 0.0},
+]
 
 
 # -- Helper functions ----------------------------------------------------------
@@ -318,9 +371,11 @@ def main() -> None:
     loop_period = 1.0 / 50.0
     lift_sp = grip_sp = 0.0
     lx_cmd = ly_cmd = yaw_cmd = 0.0
-    auto_mode  = False          # start in manual
-    fast_mode  = False          # start in normal speed
-    _a_prev = _b_prev = _y_prev = False
+    auto_mode      = False   # start in manual
+    fast_mode      = False   # start in normal speed
+    seq_idx        = -1      # -1 = not running; >= 0 = current SEQUENCE index
+    seq_hold_start = 0.0     # monotonic time when we entered the tolerance zone
+    _a_prev = _b_prev = _x_prev = _y_prev = False
 
     print("Running at 50 Hz.  Ctrl-C or q/Esc in window to stop.")
 
@@ -339,54 +394,136 @@ def main() -> None:
             rb = bool(joystick.get_button(BTN_RB)) if joystick.get_numbuttons() > BTN_RB else False
             btn_a = bool(joystick.get_button(BTN_AUTO))
             btn_b = bool(joystick.get_button(BTN_MANUAL))
+            btn_x = bool(joystick.get_button(BTN_SEQ))   if joystick.get_numbuttons() > BTN_SEQ         else False
             btn_y = bool(joystick.get_button(BTN_SPEED_BOOST)) if joystick.get_numbuttons() > BTN_SPEED_BOOST else False
 
             # Mode switching (edge-triggered)
-            if btn_a and not _a_prev:
+            if btn_b and not _b_prev:               # B always cancels everything
+                auto_mode = False
+                seq_idx   = -1
+                print("\n[MODE] MANUAL")
+            elif btn_x and not _x_prev:             # X starts sequence
+                seq_idx        = 0
+                auto_mode      = False
+                seq_hold_start = 0.0
+                print(f"\n[SEQ] Start -- Step 1/{len(SEQUENCE)}: {SEQUENCE[0]['type']}")
+            elif btn_a and not _a_prev and seq_idx < 0:   # A only when not in sequence
                 auto_mode = True
                 print(f"\n[MODE] AUTONOMOUS -- driving toward tag {TARGET_TAG_ID}")
-            if btn_b and not _b_prev:
-                auto_mode = False
-                print("\n[MODE] MANUAL")
             if btn_y and not _y_prev:
                 fast_mode = not fast_mode
                 label = "FAST" if fast_mode else "NORMAL"
                 print(f"\n[SPEED] Arm speed: {label}")
-            _a_prev, _b_prev, _y_prev = btn_a, btn_b, btn_y
+            _a_prev, _b_prev, _x_prev, _y_prev = btn_a, btn_b, btn_x, btn_y
 
             # Get latest camera frame + detections
             with _cam_lock:
                 frame      = _cam_frame.copy() if _cam_frame is not None else None
                 detections = list(_cam_detections)
 
-            # Locate target tag: robot-frame depth + pixel centroid for lateral
-            tag_pos_rob   = None
-            tag_pixel_cx  = None   # normalized pixel x: -1=left edge, 0=center, +1=right edge
+            # ── Locate TARGET_TAG_ID for A-button auto mode ───────────────────
+            tag_pos_rob  = None
+            tag_pixel_cx = None
             for det in detections:
                 if det.tag_id == TARGET_TAG_ID and det.pose_t is not None:
-                    p_cam         = np.array(det.pose_t, dtype=float).ravel()
-                    tag_pos_rob   = R_cr @ p_cam + t_cr
-                    pts           = det.corners
-                    raw_cx        = float(pts[:, 0].mean())
-                    tag_pixel_cx  = (raw_cx - FRAME_W / 2.0) / (FRAME_W / 2.0)  # [-1, 1]
+                    p_cam        = np.array(det.pose_t, dtype=float).ravel()
+                    tag_pos_rob  = R_cr @ p_cam + t_cr
+                    raw_cx       = float(det.corners[:, 0].mean())
+                    tag_pixel_cx = (raw_cx - FRAME_W / 2.0) / (FRAME_W / 2.0)
                     break
 
-            # Autonomous effort -- computed always so it can be displayed in any mode
-            # Lateral / yaw use pixel centroid; forward uses 3-D depth from transform
+            # A-button autonomous effort (always computed for overlay)
             if tag_pos_rob is not None and tag_pixel_cx is not None:
-                _err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
-                _err_lat = tag_pixel_cx - GOAL_OFFSET_X   # GOAL_OFFSET_X now in norm-pixel units
-                auto_lx  = max(-1.0, min(1.0,  K_LAT * _err_lat))
-                auto_ly  = max(-1.0, min(1.0,  K_FWD * _err_fwd))
-                auto_yaw = max(-1.0, min(1.0,  K_YAW * _err_lat))
+                _el  = tag_pixel_cx - GOAL_OFFSET_X
+                auto_lx  = max(-1.0, min(1.0, K_LAT * _el))
+                auto_ly  = max(-1.0, min(1.0, K_FWD * (tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y))))
+                auto_yaw = max(-1.0, min(1.0, K_YAW * _el))
             else:
                 auto_lx = auto_ly = auto_yaw = 0.0
 
-            # Drive command
-            if auto_mode and tag_pos_rob is not None:
+            # ── Sequence runner ───────────────────────────────────────────────
+            seq_drive_lx = seq_drive_ly = seq_drive_yaw = 0.0
+            seq_arm_owns = False   # True = sequence owns arm (block joystick)
+            if seq_idx >= 0:
+                step  = SEQUENCE[seq_idx]
+                stype = step["type"]
+                now   = time.monotonic()
+
+                # Arm slewing (set_arm and drive_arm) -- fixed rate for safety
+                if stype in ("set_arm", "drive_arm"):
+                    seq_arm_owns = True
+                    lift_tgt = step.get("lift", lift_sp)
+                    grip_tgt = step.get("grip", grip_sp)
+                    lift_sp  = _slew(lift_tgt, lift_sp, SEQ_ARM_LIFT_SPEED * loop_period)
+                    grip_sp  = _slew(grip_tgt, grip_sp, SEQ_ARM_GRIP_SPEED * loop_period)
+                    arm_done = (abs(lift_sp - lift_tgt) < SEQ_ARM_TOL_RAD and
+                                abs(grip_sp - grip_tgt) < SEQ_ARM_TOL_RAD)
+                else:
+                    arm_done = True
+
+                # Drive control (drive_tag and drive_arm)
+                if stype in ("drive_tag", "drive_arm"):
+                    _t_pos = None
+                    _t_pix = None
+                    for det in detections:
+                        if det.tag_id == step["tag"] and det.pose_t is not None:
+                            pc     = np.array(det.pose_t, dtype=float).ravel()
+                            _t_pos = R_cr @ pc + t_cr
+                            _t_pix = (float(det.corners[:, 0].mean()) - FRAME_W / 2) / (FRAME_W / 2)
+                            break
+                    if _t_pos is not None:
+                        _ef = _t_pos[1] - step.get("stop_dist", 0.5)
+                        _el = _t_pix  - step.get("lat_off", 0.0)
+                        seq_drive_lx  = max(-1., min(1., K_LAT * _el))
+                        seq_drive_ly  = max(-1., min(1., K_FWD * _ef))
+                        seq_drive_yaw = max(-1., min(1., K_YAW * _el))
+                        _in_tol = abs(_ef) < SEQ_REACH_FWD_M and abs(_el) < SEQ_REACH_PIX_X
+                    else:
+                        _in_tol = False
+                    if _in_tol:
+                        if seq_hold_start == 0.0:
+                            seq_hold_start = now
+                        drive_done = (now - seq_hold_start) >= step.get("hold_s", SEQ_DRIVE_HOLD_S)
+                    else:
+                        seq_hold_start = 0.0
+                        drive_done = False
+
+                elif stype == "turn_yaw":
+                    _imu_yaw = get_imu("drive").get("yaw", 0.0)
+                    _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
+                    seq_drive_yaw = max(-1., min(1., K_TURN_DEG * _err_deg))
+                    _in_tol = abs(_err_deg) < step.get("tol_deg", SEQ_YAW_TOL_DEG)
+                    if _in_tol:
+                        if seq_hold_start == 0.0:
+                            seq_hold_start = now
+                        drive_done = (now - seq_hold_start) >= step.get("hold_s", SEQ_YAW_HOLD_S)
+                    else:
+                        seq_hold_start = 0.0
+                        drive_done = False
+
+                else:   # "set_arm" only -- no drive
+                    drive_done = True
+
+                if drive_done and arm_done:
+                    seq_idx += 1
+                    seq_hold_start = 0.0
+                    if seq_idx >= len(SEQUENCE):
+                        seq_idx = -1
+                        print("\n[SEQ] Sequence complete -- returning to MANUAL")
+                    else:
+                        print(f"\n[SEQ] Step {seq_idx + 1}/{len(SEQUENCE)}: {SEQUENCE[seq_idx]['type']}")
+
+            # ── Drive command ─────────────────────────────────────────────────
+            if seq_idx >= 0:
+                _stype = SEQUENCE[seq_idx]["type"]
+                if _stype in ("drive_tag", "drive_arm", "turn_yaw"):
+                    drive_cmd = f"lx:{seq_drive_lx:.3f};ly:{seq_drive_ly:.3f};yaw:{seq_drive_yaw:.3f};\n"
+                else:
+                    drive_cmd = "lx:0.000;ly:0.000;yaw:0.000;\n"
+            elif auto_mode and tag_pos_rob is not None:
                 drive_cmd = f"lx:{auto_lx:.3f};ly:{auto_ly:.3f};yaw:{auto_yaw:.3f};\n"
             elif auto_mode:
-                drive_cmd = "lx:0.000;ly:0.000;yaw:0.000;\n"   # tag lost -- stop
+                drive_cmd = "lx:0.000;ly:0.000;yaw:0.000;\n"
             else:
                 max_step = MAX_Drive_Slew * loop_period
                 lx_cmd  = _slew(lx,  lx_cmd,  max_step)
@@ -394,10 +531,12 @@ def main() -> None:
                 yaw_cmd = _slew(rx, yaw_cmd, max_step)
                 drive_cmd = compute_drive_command(lx_cmd, ly_cmd, yaw_cmd)
 
-            # Arm command
-            lift_sp, grip_sp = step_arm_setpoints(
-                lift_sp, grip_sp, lt, rt, lb, rb, loop_period, fast=fast_mode,
-            )
+            # ── Arm command ───────────────────────────────────────────────────
+            # Sequence owns arm during set_arm / drive_arm; joystick otherwise
+            if not seq_arm_owns:
+                lift_sp, grip_sp = step_arm_setpoints(
+                    lift_sp, grip_sp, lt, rt, lb, rb, loop_period, fast=fast_mode,
+                )
 
             drive_ser.write(drive_cmd.encode())
             arm_ser.write(f"lift:{lift_sp:.3f};grip:{grip_sp:.3f};\n".encode())
@@ -428,8 +567,16 @@ def main() -> None:
                                     font, 0.45, (255, 180, 0), 1, cv2.LINE_AA)
 
                 # Mode banner (top-left)
-                mode_str = f"AUTO  (tag {TARGET_TAG_ID})" if auto_mode else "MANUAL"
-                mode_col = (0, 220, 60) if auto_mode else (40, 80, 255)
+                if seq_idx >= 0:
+                    _sb = SEQUENCE[seq_idx]
+                    mode_str = f"SEQ {seq_idx + 1}/{len(SEQUENCE)}: {_sb['type']}  (B=cancel)"
+                    mode_col = (0, 180, 255)
+                elif auto_mode:
+                    mode_str = f"AUTO  (tag {TARGET_TAG_ID})"
+                    mode_col = (0, 220, 60)
+                else:
+                    mode_str = "MANUAL"
+                    mode_col = (40, 80, 255)
                 cv2.putText(frame, mode_str, (8, 30), font, 0.9, (0, 0, 0),    4, cv2.LINE_AA)
                 cv2.putText(frame, mode_str, (8, 30), font, 0.9, mode_col, 2, cv2.LINE_AA)
 
@@ -465,7 +612,7 @@ def main() -> None:
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
                 cv2.putText(frame, speed_str,
                             (FRAME_W - 160, FRAME_H - 10), font, 0.45, speed_col, 1, cv2.LINE_AA)
-                cv2.putText(frame, "A=auto  B=manual",
+                cv2.putText(frame, "A=auto  X=sequence  B=manual",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 
                 cv2.imshow("Autonomy Controller  (q / Esc = quit)", frame)
