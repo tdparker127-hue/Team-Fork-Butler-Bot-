@@ -77,11 +77,16 @@ CALIB_FILE    = Path(__file__).parent.parent / "vision" / "camera_calibration_li
 FRAME_W, FRAME_H, FRAME_FPS = 640, 360, 15
 
 # -- Autonomous control --------------------------------------------------------
-TARGET_TAG_ID = 6      # AprilTag ID to drive toward
-STOP_DIST_M   = 0.5    # desired forward distance from tag face [m]
-K_FWD         = 0.6    # forward P-gain  (normalized speed / m error)
-K_LAT         = 1.0    # lateral P-gain  (normalized speed / m)
-K_YAW         = 0.5    # yaw P-gain from lateral error
+TARGET_TAG_ID  = 6      # AprilTag ID to drive toward
+STOP_DIST_M    = 0.5    # desired forward distance from tag face [m]
+K_FWD          = 0.6    # forward P-gain  (normalized speed / m error)
+K_LAT          = 1.0    # lateral P-gain  (normalized speed / m)
+K_YAW          = 0.5    # yaw P-gain from lateral error
+# Goal offset relative to tag center (robot frame: right=+X, forward=+Y).
+# Use these to shift the target position when the tag appears off-center.
+# e.g. GOAL_OFFSET_X = 0.05 means stop 5 cm to the right of the tag center.
+GOAL_OFFSET_X  = 0.0   # lateral offset [m]  (right = +, left = -)
+GOAL_OFFSET_Y  = 0.0   # forward offset [m]  (further = +, closer = -)
 
 
 # -- Helper functions ----------------------------------------------------------
@@ -352,8 +357,8 @@ def main() -> None:
 
             # Drive command
             if auto_mode and tag_pos_rob is not None:
-                err_fwd = tag_pos_rob[1] - STOP_DIST_M
-                err_lat = tag_pos_rob[0]
+                err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
+                err_lat = tag_pos_rob[0] - GOAL_OFFSET_X
                 lx_out  = max(-1.0, min(1.0, K_LAT * err_lat))
                 ly_out  = max(-1.0, min(1.0, K_FWD * err_fwd))
                 yaw_out = max(-1.0, min(1.0, K_YAW * err_lat))
@@ -382,7 +387,7 @@ def main() -> None:
                 # Tag outlines + robot-frame position labels
                 for det in detections:
                     pts = det.corners.astype(int)
-                    col = (0, 255, 60) if det.tag_id == TARGET_TAG_ID else (0, 200, 200)
+                    col = (0, 0, 220) if det.tag_id == TARGET_TAG_ID else (0, 200, 200)
                     cv2.polylines(frame, [pts.reshape(-1, 1, 2)], True, col, 2)
                     cx_t = int(pts[:, 0].mean())
                     cy_t = int(pts[:, 1].mean())
@@ -406,6 +411,12 @@ def main() -> None:
                     cv2.putText(frame,
                                 f"dist={dist:.2f}m  lat={tag_pos_rob[0]:+.2f}m  fwd={tag_pos_rob[1]:.2f}m",
                                 (8, 58), font, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+                    # Control output
+                    _parts = {t.split(':')[0]: float(t.split(':')[1])
+                              for t in drive_cmd.strip().rstrip(';').split(';') if ':' in t}
+                    cv2.putText(frame,
+                                f"cmd  lx={_parts.get('lx',0):+.3f}  ly={_parts.get('ly',0):+.3f}  yaw={_parts.get('yaw',0):+.3f}",
+                                (8, 78), font, 0.5, (200, 255, 200), 1, cv2.LINE_AA)
                 elif auto_mode:
                     cv2.putText(frame, "Tag not visible -- stopped",
                                 (8, 58), font, 0.5, (80, 80, 255), 1, cv2.LINE_AA)
