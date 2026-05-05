@@ -110,7 +110,7 @@ DETECT_REFINE      = 1
 GATING = GatingMethod.EUCLIDEAN
 
 # ---- Test mode — change this one line to switch what the EKF fuses ----
-TEST_MODE = TestMode.FULL
+TEST_MODE = TestMode.VISION_ONLY
 #   Options:
 #     TestMode.VISION_ONLY  — update_apriltag() only; no predict (original behaviour).
 #     TestMode.IMU_ONLY     — update_imu(yaw) only; useful to check IMU drift alone.
@@ -326,10 +326,13 @@ def main():
             rx_joy = joystick.get_axis(rc.AXIS_RX)
             rc._drive_ser.write(rc.compute_drive_command(lx, ly, rx_joy).encode())
 
-        # ---- IMU predict (all modes that use sensor data) ----
+        # ---- IMU predict (all modes that use sensorq data) ----
         # The predict step uses IMU yaw rate; encoder is an update step.
         imu = rc.get_imu("drive")
-        if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.IMU_ONLY, TestMode.FULL):
+        if TEST_MODE == TestMode.VISION_ONLY:
+            # Inject process noise without IMU-driven heading propagation
+            ekf.predict(0.0, dt)
+        elif TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.IMU_ONLY, TestMode.FULL):
             ekf.predict(imu["yawRate"], dt)
 
         # ---- Encoder update (ENCODER_ONLY or FULL) ----
