@@ -329,7 +329,10 @@ def main():
         # ---- IMU predict (all modes that use sensorq data) ----
         # The predict step uses IMU yaw rate; encoder is an update step.
         imu = rc.get_imu("drive")
-        if TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.IMU_ONLY, TestMode.FULL):
+        if TEST_MODE == TestMode.VISION_ONLY:
+            # Inject process noise without IMU-driven heading propagation
+            ekf.predict(0.0, dt)
+        elif TEST_MODE in (TestMode.ENCODER_ONLY, TestMode.IMU_ONLY, TestMode.FULL):
             ekf.predict(imu["yawRate"], dt)
 
         # ---- Encoder update (ENCODER_ONLY or FULL) ----
