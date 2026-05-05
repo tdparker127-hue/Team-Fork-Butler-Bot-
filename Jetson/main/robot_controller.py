@@ -56,7 +56,7 @@ DEADBAND = 0.1  # joystick dead-zone
 
 # ── Arm max speeds ────────────────────────────────────────────────────────────
 # At 50 Hz loop: step_per_loop = speed / 50
-MAX_LIFT_SPEED = 0.5  # rad/s — fixed rate when bumper held
+MAX_LIFT_SPEED = 1.0  # rad/s — fixed rate when bumper held
 MAX_GRIP_SPEED = 1.5  # rad/s — at full trigger press (proportional to depth)
 
 # ── Xbox One BT axis / button indices (pygame on Linux) ─────────────────────
@@ -112,12 +112,12 @@ def step_arm_setpoints(
     Returns (new_lift_sp, new_grip_sp).
     """
     # Lift: proportional — net trigger depth drives the rate
-    lift_delta = (_trigger_depth(rt_raw) - _trigger_depth(lt_raw)) * MAX_LIFT_SPEED * dt
+    lift_delta = (_trigger_depth(lt_raw) - _trigger_depth(rt_raw)) * MAX_LIFT_SPEED * dt
     #lift_sp = lift_sp + lift_delta
     lift_sp = _clamp_range(lift_sp + lift_delta, MIN_LIFT_RAD, MAX_LIFT_RAD)
 
     # Grip: fixed rate, direction from which bumper is held
-    grip_delta = (int(rb_held) - int(lb_held)) * MAX_GRIP_SPEED * dt
+    grip_delta = (int(lb_held) - int(rb_held)) * MAX_GRIP_SPEED * dt
     #grip_sp = grip_sp + grip_delta
     grip_sp = _clamp_range(grip_sp + grip_delta, MIN_GRIP_RAD, MAX_GRIP_RAD)
 
