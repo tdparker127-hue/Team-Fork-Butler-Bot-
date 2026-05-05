@@ -117,7 +117,7 @@ def step_arm_setpoints(
     lift_sp = _clamp_range(lift_sp + lift_delta, MIN_LIFT_RAD, MAX_LIFT_RAD)
 
     # Grip: fixed rate, direction from which bumper is held
-    grip_delta = (int(lb_held) - int(rb_held)) * MAX_GRIP_SPEED * dt
+    grip_delta = (int(rb_held) - int(lb_held)) * MAX_GRIP_SPEED * dt
     #grip_sp = grip_sp + grip_delta
     grip_sp = _clamp_range(grip_sp + grip_delta, MIN_GRIP_RAD, MAX_GRIP_RAD)
 
@@ -334,7 +334,7 @@ def main() -> None:
 
     # Arm setpoint state — Jetson owns the incremental integration
     lift_sp = 0.0
-    grip_sp = 0.0
+    grip_sp = MIN_GRIP_RAD
 
     try:
         while True:

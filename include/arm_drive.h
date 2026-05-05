@@ -16,8 +16,8 @@
 #define MIN_LIFT_RAD  0// Done!: lowered config set to min safe encoder position (e.g. arm fully lowered)
 #define MAX_LIFT_RAD  3.5  // Done! maximum lift config set to max safe encoder position (e.g. arm fully raised)
 //lift position for full actuation of the gripper = -3.62
-#define MIN_GRIP_RAD   0 // Done!: open position position set to closed hard-stop position
-#define MAX_GRIP_RAD   1.85// Done!: close positionset to open hard-stop position
+#define MIN_GRIP_RAD   0 // Done!: closed position position set to closed hard-stop position
+#define MAX_GRIP_RAD   1.85// Done!: open positionset to open hard-stop position
 
 
 // ---- Function declarations ----
