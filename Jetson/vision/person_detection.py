@@ -36,9 +36,14 @@ except ImportError:
     _YOLO_AVAILABLE = False
     print("[WARN] ultralytics not installed — PersonDetector will return CLEAR always.")
 
-from config import (
-    PERSON_CONF, SLOW_DIST_M, STOP_DIST_M, SLOW_BBOX_FRAC, STOP_BBOX_FRAC,
-)
+try:
+    from Jetson.config import (
+        PERSON_CONF, SLOW_DIST_M, STOP_DIST_M, SLOW_BBOX_FRAC, STOP_BBOX_FRAC,
+    )
+except ModuleNotFoundError:
+    from config import (
+        PERSON_CONF, SLOW_DIST_M, STOP_DIST_M, SLOW_BBOX_FRAC, STOP_BBOX_FRAC,
+    )
 
 # ===========================================================================
 # Tunable parameters — imported from Jetson/config.py
