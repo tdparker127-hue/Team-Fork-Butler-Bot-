@@ -86,6 +86,7 @@ from Jetson.config import (
     ARM_LOWER_TIME_S, ARM_GRIP_TIME_S, ARM_LIFT_TIME_S,
     COLOR_CAMERA_DEVICE,
 )
+from Jetson.map_viewer import MapViewer
 
 # ===========================================================================
 # Tunable parameters
@@ -510,6 +511,10 @@ class MissionController:
         # Tray detection runs in the main loop (not a separate thread) so it
         # doesn't need its own camera.  The person worker exposes latest_frame.
 
+        # ----- Map viewer -------------------------------------------------
+        self._map_viewer = MapViewer()
+        self._map_viewer.start()
+
         print("[MC] Starting mission controller at 20 Hz.  Ctrl-C to stop.")
         self._last_predict_t = time.monotonic()
         dt = 1.0 / CONTROL_HZ
@@ -527,6 +532,7 @@ class MissionController:
             self._send_drive_raw(0.0, 0.0, 0.0)
             self._drive_ser.close()
             self._arm_ser.close()
+            self._map_viewer.stop()
             pygame.quit()
 
     # -----------------------------------------------------------------------
@@ -623,6 +629,7 @@ class MissionController:
                 self._ekf.update_apriltag(rx, ry, ryaw, n_tags)
 
         pose_x, pose_y, pose_theta, _ = self._ekf.get_pose()
+        self._map_viewer.update(pose_x, pose_y, pose_theta)
 
         # 4. Person-safety preemption (highest priority)
         person_threat = (
