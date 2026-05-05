@@ -251,7 +251,7 @@ STOP_BBOX_FRAC = 0.25   # fallback: STOP if person bbox > 25% of frame area
 # ===========================================================================
 
 COLOR_CAMERA_DEVICE = "/dev/video0"    # RGB camera (AprilTags / color blob)
-DEPTH_CAMERA_DEVICE = "/dev/video1"   # Depth / secondary RGB camera
+DEPTH_CAMERA_DEVICE = "/dev/video6"   # Depth / secondary RGB camera
 
 
 # ===========================================================================
