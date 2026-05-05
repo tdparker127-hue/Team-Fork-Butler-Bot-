@@ -85,8 +85,8 @@ K_YAW          = 0.5    # yaw P-gain from lateral error
 # Goal offset relative to tag center (robot frame: right=+X, forward=+Y).
 # Use these to shift the target position when the tag appears off-center.
 # e.g. GOAL_OFFSET_X = 0.05 means stop 5 cm to the right of the tag center.
-GOAL_OFFSET_X  = 0.0   # lateral offset [m]  (right = +, left = -)
-GOAL_OFFSET_Y  = 0.0   # forward offset [m]  (further = +, closer = -)
+GOAL_OFFSET_X  = -0.27   # lateral offset [m]  (right = +, left = -)
+GOAL_OFFSET_Y  = 0.10  # forward offset [m]  (further = +, closer = -)
 
 
 # -- Helper functions ----------------------------------------------------------
@@ -359,9 +359,9 @@ def main() -> None:
             if auto_mode and tag_pos_rob is not None:
                 err_fwd = tag_pos_rob[1] - (STOP_DIST_M + GOAL_OFFSET_Y)
                 err_lat = tag_pos_rob[0] - GOAL_OFFSET_X
-                lx_out  = max(-1.0, min(1.0, K_LAT * err_lat))
-                ly_out  = max(-1.0, min(1.0, K_FWD * err_fwd))
-                yaw_out = max(-1.0, min(1.0, K_YAW * err_lat))
+                lx_out  = max(-1.0, min(1.0, -K_LAT * err_lat))
+                ly_out  = max(-1.0, min(1.0, -K_FWD * err_fwd))
+                yaw_out = max(-1.0, min(1.0, -K_YAW * err_lat))
                 drive_cmd = f"lx:{lx_out:.3f};ly:{ly_out:.3f};yaw:{yaw_out:.3f};\n"
             elif auto_mode:
                 drive_cmd = "lx:0.000;ly:0.000;yaw:0.000;\n"   # tag lost -- stop
