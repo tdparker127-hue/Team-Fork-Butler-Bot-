@@ -572,6 +572,8 @@ def main() -> None:
                     grip_sp  = _slew(grip_tgt, grip_sp, SEQ_ARM_GRIP_SPEED * loop_period)
                     arm_done = (abs(lift_sp - lift_tgt) < SEQ_ARM_TOL_RAD and
                                 abs(grip_sp - grip_tgt) < SEQ_ARM_TOL_RAD)
+                    print(f"\r[ARM] step={seq_idx} tgt=({lift_tgt:.2f},{grip_tgt:.2f}) "
+                          f"sp=({lift_sp:.2f},{grip_sp:.2f}) done={arm_done}    ", end="", flush=True)
                 else:
                     arm_done = True
 
@@ -725,7 +727,7 @@ def main() -> None:
                             (8, 98), font, 0.5, auto_col, 1, cv2.LINE_AA)
                 arm_owns_str = "seq" if seq_arm_owns else "joy"
                 cv2.putText(canvas,
-                            f"arm [{arm_owns_str}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
+                            f"arm [{arm_owns_str}][step {seq_idx}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
                             (8, 118), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
 
                 speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
