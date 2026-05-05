@@ -462,7 +462,8 @@ def main() -> None:
     _person_annotated     = None    # cached annotated frame from last detection
     print("[PERSON] Ready.")
 
-    cv2.namedWindow(WIN_NAME)
+    cv2.namedWindow(WIN_NAME, cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty(WIN_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.setMouseCallback(WIN_NAME, _mouse_cb)
 
     try:
