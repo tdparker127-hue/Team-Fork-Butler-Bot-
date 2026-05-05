@@ -152,7 +152,17 @@ class MapViewer:
     # -----------------------------------------------------------------------
 
     def update(self, x: float, y: float, heading: float) -> None:
-        """Update robot pose (arena frame metres, heading radians CCW from +X)."""
+        """Update robot pose (arena frame metres, heading radians CCW from +X).
+
+        The AprilTag localizer returns a pose that is 180° rotated relative to
+        the map frame (the camera faces the tags from the opposite side of the
+        arena coordinate origin), so x, y, and heading are all flipped here
+        before rendering.
+        """
+        # 180° flip: negate position and wrap heading
+        x = -x
+        y = -y
+        heading = heading + math.pi
         with self._lock:
             self._trail.append((self._rx, self._ry))
             if len(self._trail) > TRAIL_MAX:
