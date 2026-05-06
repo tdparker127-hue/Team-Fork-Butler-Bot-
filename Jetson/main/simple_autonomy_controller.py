@@ -601,9 +601,10 @@ def main() -> None:
 
                 elif stype == "turn_yaw":
                     _imu = get_imu("drive")
-                    _imu_yaw      = math.degrees(_imu.get("yaw", 0.0))      # rad → deg
-                    _yaw_rate_dps = math.degrees(_imu.get("yawRate", 0.0))  # rad/s → deg/s
-                    _err_deg = ((step["yaw_deg"] + _imu_yaw + 180) % 360) - 180
+                    # Negate: IMU CCW=positive, drive command CW=positive
+                    _imu_yaw      = -math.degrees(_imu.get("yaw", 0.0))      # rad → deg, sign-flipped
+                    _yaw_rate_dps = -math.degrees(_imu.get("yawRate", 0.0))  # rad/s → deg/s, sign-flipped
+                    _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
                     # PD controller: P on heading error, D damps via live yaw rate
                     _pd_out = K_TURN_DEG * _err_deg - K_D_TURN_DEG * _yaw_rate_dps
                     print(f"\r[YAW] _pd_out={_pd_out:.3f} err={_err_deg:.2f}° imu_yaw={_imu_yaw:.2f}° yaw_rate={_yaw_rate_dps:.2f}°/s    ", end="", flush=True)
@@ -750,7 +751,7 @@ def main() -> None:
                 cv2.putText(canvas,
                             f"arm [{arm_owns_str}][step {seq_idx}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
                             (8, 78), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
-                _cur_yaw = math.degrees(get_imu("drive").get("yaw", 0.0))  # firmware sends radians
+                _cur_yaw = -math.degrees(get_imu("drive").get("yaw", 0.0))  # negated: CW=positive matches drive convention
                 cv2.putText(canvas,
                             f"IMU yaw={_cur_yaw:+.1f} deg",
                             (8, 98), font, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
