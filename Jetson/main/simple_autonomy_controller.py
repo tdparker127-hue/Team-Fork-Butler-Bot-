@@ -227,6 +227,30 @@ MISSIONS = {
         },
         # {"type": "set_arm", "grip": 0.0},
     ],
+    "Temp Dish Drop Off": [
+        {
+            "type": "drive_arm",
+            "tag": 6,
+            "stop_dist": 1.7,
+            "lat_off": 0.0,
+            "lift": 3.5,
+            "zvu_trust_dist": 2.0,
+        },
+        {
+            "type": "drive_tag",
+            "tag": 6,
+            "stop_dist": 1.34,
+            "lat_off": 0.0,
+        },
+        {"type": "set_arm", "lift": 1.84, "grip": 1.85},
+        {
+            "type": "drive_arm",
+            "tag": 6,
+            "stop_dist": 1.5,
+            "lat_off": 0.0,
+            "lift": 3.6,
+        },
+    ],
     "Approach Only": [
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
         {"type": "drive_tag", "tag": 6, "stop_dist": 0.5, "lat_off": 0.0},
