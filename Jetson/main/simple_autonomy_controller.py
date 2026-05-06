@@ -1109,10 +1109,18 @@ def main() -> None:
                             f"arm [{arm_owns_str}][step {seq_idx}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
                             (8, 78), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
                 _cur_yaw = get_yaw_deg()
-                _off_str = f"  [raw offset {_yaw_offset_deg:+.1f}°]" if abs(_yaw_offset_deg) > 0.05 else ""
-                cv2.putText(canvas,
-                            f"IMU yaw={_cur_yaw:+.1f}°{_off_str}",
-                            (8, 98), font, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
+                _off_str = f" [off {_yaw_offset_deg:+.1f}°]" if abs(_yaw_offset_deg) > 0.05 else ""
+                _disp_tag_id = (step["tag"] if seq_idx >= 0 and stype in ("drive_tag", "drive_arm")
+                                else TARGET_TAG_ID)
+                _disp_det = next((d for d in detections
+                                  if d.tag_id == _disp_tag_id and d.pose_t is not None), None)
+                if _disp_det is not None:
+                    _dc = np.array(_disp_det.pose_t, dtype=float).ravel()
+                    _tag_dbg = (f"tag{_disp_tag_id}  cam_x={_dc[0]:+.3f}m"
+                                f"  cam_z={_dc[2]:.3f}m  yaw={_cur_yaw:+.1f}°{_off_str}")
+                else:
+                    _tag_dbg = f"tag{_disp_tag_id}: no detection  yaw={_cur_yaw:+.1f}°{_off_str}"
+                cv2.putText(canvas, _tag_dbg, (8, 98), font, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
 
                 speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
