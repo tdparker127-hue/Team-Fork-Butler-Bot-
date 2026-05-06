@@ -100,7 +100,8 @@ SEQ_REACH_FWD_M    = 0.08            # forward error threshold [m]
 SEQ_REACH_PIX_X    = 0.06            # lateral pixel tolerance (normalized [-1,1])
 SEQ_YAW_TOL_DEG    = 3.0             # heading tolerance for turn_yaw steps [deg]
 SEQ_YAW_HOLD_S     = 0.3             # hold within yaw tolerance before advancing [s]
-K_TURN_DEG         = 0.0025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
+K_TURN_DEG         = 0.025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
+K_TURN_PRECISE     = 0.0005
 #   40 deg error → 1.0 (full speed)
 
 
@@ -603,6 +604,7 @@ def main() -> None:
                     seq_drive_yaw = max(-1., min(1., K_TURN_DEG * _err_deg))
                     _in_tol = abs(_err_deg) < step.get("tol_deg", SEQ_YAW_TOL_DEG)
                     if _in_tol:
+                        seq_drive_yaw = max(-1.0, min(1.0, K_TURN_PRECISE * _err_deg))
                         if seq_hold_start == 0.0:
                             seq_hold_start = now
                         drive_done = (now - seq_hold_start) >= step.get("hold_s", SEQ_YAW_HOLD_S)
@@ -768,8 +770,6 @@ def main() -> None:
 
             elapsed = time.monotonic() - t0
             sleep_for = loop_period - elapsed
-            if elapsed > loop_period * 1.5:   # warn when loop runs >50% over budget
-                print(f"\r[TIMING] loop={elapsed*1000:.1f}ms (budget={loop_period*1000:.0f}ms)    ", end="", flush=True)
             if sleep_for > 0:
                 time.sleep(sleep_for)
 
