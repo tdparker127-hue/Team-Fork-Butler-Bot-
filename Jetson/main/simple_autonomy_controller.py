@@ -234,7 +234,7 @@ MISSIONS = {
             "stop_dist": 1.87,
             "lat_off": 0.0,
             "lift": 3.5,
-            "grip": 1.85,
+            "grip": 0.0,
             "zvu_trust_dist": 2.0,
         },
         {
@@ -247,7 +247,7 @@ MISSIONS = {
         {
             "type": "drive_tag",
             "tag": 5,
-            "stop_dist": 1.15,
+            "stop_dist": 1.11,
             "lat_off": 0.0,
         },
         {
