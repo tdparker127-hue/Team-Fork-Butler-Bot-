@@ -101,6 +101,7 @@ SEQ_REACH_PIX_X    = 0.06            # lateral pixel tolerance (normalized [-1,1
 SEQ_YAW_TOL_DEG    = 3.0             # heading tolerance for turn_yaw steps [deg]
 SEQ_YAW_HOLD_S     = 0.3             # hold within yaw tolerance before advancing [s]
 K_TURN_DEG         = 0.025           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
+K_D_TURN_DEG       = 0.002           # D-gain for turn_yaw: damps using IMU yawRate [1/(deg/s)]
 K_TURN_PRECISE     = 0.0005
 #   40 deg error → 1.0 (full speed)
 
@@ -599,12 +600,16 @@ def main() -> None:
                         drive_done = False
 
                 elif stype == "turn_yaw":
-                    _imu_yaw = math.degrees(get_imu("drive").get("yaw", 0.0))  # firmware sends radians
+                    _imu = get_imu("drive")
+                    _imu_yaw      = math.degrees(_imu.get("yaw", 0.0))      # rad → deg
+                    _yaw_rate_dps = math.degrees(_imu.get("yawRate", 0.0))  # rad/s → deg/s
                     _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
-                    seq_drive_yaw = max(-1., min(1., K_TURN_DEG * _err_deg))
+                    # PD controller: P on heading error, D damps via live yaw rate
+                    _pd_out = K_TURN_DEG * _err_deg - K_D_TURN_DEG * _yaw_rate_dps
+                    seq_drive_yaw = max(-1., min(1., _pd_out))
                     _in_tol = abs(_err_deg) < step.get("tol_deg", SEQ_YAW_TOL_DEG)
                     if _in_tol:
-                        seq_drive_yaw = max(-1.0, min(1.0, K_TURN_PRECISE * _err_deg))
+                        # seq_drive_yaw = max(-1.0, min(1.0, K_TURN_PRECISE * _err_deg))
                         if seq_hold_start == 0.0:
                             seq_hold_start = now
                         drive_done = (now - seq_hold_start) >= step.get("hold_s", SEQ_YAW_HOLD_S)
