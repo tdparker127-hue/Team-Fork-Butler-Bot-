@@ -427,6 +427,7 @@ def main() -> None:
     print(f"Controller: {joystick.get_name()}")
     print("  A = autonomous mode    B = manual mode  (starting in MANUAL)")
 
+
     # Serial ports
     try:
         drive_ser = serial.Serial(DRIVE_PORT, BAUD_RATE, timeout=1)
