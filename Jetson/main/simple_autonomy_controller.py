@@ -129,16 +129,22 @@ MISSIONS = {
         # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
         {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0},
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
-        {"type": "drive_tag", "tag": 6, "stop_dist": 0.77, "lat_off": 0.0}, # limit 0.62
+        {
+            "type": "drive_tag",
+            "tag": 6,
+            "stop_dist": 0.77,
+            "lat_off": 0.0,
+        },  # limit 0.62
         {"type": "set_arm", "lift": 3.0, "grip": 0.38},
-        # {
-        #     "type": "drive_arm",
-        #     "tag": 6,
-        #     "stop_dist": 0.25,
-        #     "lat_off": 0.0,
-        #     "lift": 1.5,
-        #     "grip": 1.85,
-        # },
+        {
+            "type": "drive_arm",
+            "tag": 6,
+            "stop_dist": 1.5,
+            "lat_off": 0.0,
+            "lift": 3.6,
+            "grip": 1.85,
+        },
+        {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
         # {"type": "set_arm", "grip": 0.0},
     ],
     "Approach Only": [
