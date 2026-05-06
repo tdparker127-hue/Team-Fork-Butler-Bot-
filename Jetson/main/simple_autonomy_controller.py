@@ -134,7 +134,7 @@ K_TURN_PRECISE     = 0.0005
 #   "set_arm"    [lift], [grip]              (omit a key to leave unchanged)
 #   "drive_arm"  all drive_tag + set_arm params
 #   "turn_yaw"   yaw_deg, [tol_deg], [hold_s]
-#   "zvu_trust_d_ist":0 goes to 100% april tag trust 
+#   "zvu_trust_d_ist":0 goes to 100% april tag trust
 MISSIONS = {
     "DishRack Pickup": [
         {
@@ -144,15 +144,23 @@ MISSIONS = {
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
+            "zvu_trust_dist": 10.0,
         },
         # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0},
+        {
+            "type": "drive_tag",
+            "tag": 6,
+            "stop_dist": 1.34,
+            "lat_off": 0.0,
+            "zvu_trust_dist": 10.0,
+        },
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
         {
             "type": "drive_tag",
             "tag": 6,
-            "stop_dist": 0.77,
+            "stop_dist": 0.72,
             "lat_off": 0.0,
+            "zvu_trust_dist": 10.0,
         },  # limit 0.62
         {"type": "set_arm", "lift": 3.0, "grip": 0.38},
         {
@@ -161,6 +169,7 @@ MISSIONS = {
             "stop_dist": 1.5,
             "lat_off": 0.0,
             "lift": 3.6,
+            "zvu_trust_dist": 10.0,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
         # {"type": "set_arm", "grip": 0.0},
@@ -192,13 +201,28 @@ MISSIONS = {
             "lift": 3.6,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_arm", "tag": 7, "stop_dist": 1.0, "lat_off":-0.3, "lift": 1.0, "zvu_interval": 0.15, "zvu_trust_dist": 2.0},
-        #{"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
+        {
+            "type": "drive_arm",
+            "tag": 7,
+            "stop_dist": 1.0,
+            "lat_off": -0.3,
+            "lift": 1.0,
+            "zvu_interval": 0.15,
+            "zvu_trust_dist": 2.0,
+        },
+        # {"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
         {"type": "turn_yaw", "yaw_deg": -90.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_arm", "lift":3.5},
+        {"type": "drive_arm", "lift": 3.5},
         {"type": "drive_tag", "tag": 8, "stop_dist": 0.77, "lat_off": 0.5},
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
-        {"type": "drive_arm", "tag": 8, "stop_dist": 1.5, "lat_off": 0.5,"lift": 1.0, "grip": 0.38},
+        {
+            "type": "drive_arm",
+            "tag": 8,
+            "stop_dist": 1.5,
+            "lat_off": 0.5,
+            "lift": 1.0,
+            "grip": 0.38,
+        },
         # {"type": "set_arm", "grip": 0.0},
     ],
     "Approach Only": [
@@ -357,7 +381,6 @@ def _save_yaw_offset(offset_deg: float) -> None:
 def get_enc() -> dict:
     with _enc_lock:
         return dict(_enc_data)
-
 
 
 # -- Drive / arm serial handles exposed for external callers ------------------
