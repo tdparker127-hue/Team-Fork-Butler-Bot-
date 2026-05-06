@@ -118,17 +118,28 @@ K_TURN_PRECISE     = 0.0005
 #
 MISSIONS = {
     "Full Pickup": [
-        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
-        {"type": "drive_tag", "tag": 6, "stop_dist": 0.5, "lat_off": 0.0},
         {
             "type": "drive_arm",
             "tag": 6,
-            "stop_dist": 0.3,
+            "stop_dist": 1.7,
             "lat_off": 0.0,
-            "lift": 1.5,
+            "lift": 3.5,
             "grip": 1.85,
         },
-        {"type": "set_arm", "grip": 0.0},
+        # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
+        {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0},
+        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {"type": "drive_tag", "tag": 6, "stop_dist": 0.77, "lat_off": 0.0}, # limit 0.62
+        {"type": "set_arm", "lift": 3.0, "grip": 0.38},
+        # {
+        #     "type": "drive_arm",
+        #     "tag": 6,
+        #     "stop_dist": 0.25,
+        #     "lat_off": 0.0,
+        #     "lift": 1.5,
+        #     "grip": 1.85,
+        # },
+        # {"type": "set_arm", "grip": 0.0},
     ],
     "Approach Only": [
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
@@ -582,15 +593,35 @@ def main() -> None:
                             _t_pos = R_cr @ pc + t_cr
                             _t_pix = (float(det.corners[:, 0].mean()) - FRAME_W / 2) / (FRAME_W / 2)
                             break
+
+                    # Optional final heading: present in step dict as "yaw_deg"
+                    _step_yaw_deg  = step.get("yaw_deg", None)
+                    _step_yaw_tol  = step.get("tol_deg", SEQ_YAW_TOL_DEG)
+
                     if _t_pos is not None:
                         _ef = _t_pos[1] - step.get("stop_dist", 0.5)
                         _el = _t_pix  - step.get("lat_off", 0.0)
                         seq_drive_lx  = max(-1., min(1., K_LAT * _el))
                         seq_drive_ly  = max(-1., min(1., K_FWD * _ef))
-                        seq_drive_yaw = max(-1., min(1., K_YAW * _el))
-                        _in_tol = abs(_ef) < SEQ_REACH_FWD_M and abs(_el) < SEQ_REACH_PIX_X
+                        _in_pos_tol = abs(_ef) < SEQ_REACH_FWD_M and abs(_el) < SEQ_REACH_PIX_X
+
+                        # Yaw: IMU PD runs throughout if yaw_deg specified; else pixel centering
+                        if _step_yaw_deg is not None:
+                            _imu      = get_imu("drive")
+                            _imu_yaw  = -math.degrees(_imu.get("yaw", 0.0))
+                            _yaw_rate = -math.degrees(_imu.get("yawRate", 0.0))
+                            _yaw_err  = ((_step_yaw_deg - _imu_yaw + 180) % 360) - 180
+                            seq_drive_yaw = max(-1., min(1.,
+                                K_TURN_DEG * _yaw_err - K_D_TURN_DEG * _yaw_rate))
+                            _yaw_settled = abs(_yaw_err) < _step_yaw_tol
+                        else:
+                            seq_drive_yaw = max(-1., min(1., K_YAW * _el))
+                            _yaw_settled  = True   # no yaw requirement → always satisfied
+
+                        _in_tol = _in_pos_tol and _yaw_settled
                     else:
                         _in_tol = False
+
                     if _in_tol:
                         if seq_hold_start == 0.0:
                             seq_hold_start = now
