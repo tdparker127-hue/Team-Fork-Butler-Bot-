@@ -191,7 +191,7 @@ MISSIONS = {
             "stop_dist": 0.72,
             "lat_off": 0.0,
         },  # limit 0.62
-        {"type": "set_arm", "lift": 1.84, "grip": 0.38},
+        {"type": "set_arm", "lift": 3.6, "grip": 0.38},
         {
             "type": "drive_arm",
             "tag": 6,
