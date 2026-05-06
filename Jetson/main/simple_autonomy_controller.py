@@ -91,7 +91,7 @@ WIN_NAME   = "Autonomy Controller  (q / Esc = quit)"
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID highlighted in the camera overlay
 K_FWD          = 1.5    # forward P-gain  (normalized speed / m error)
-K_LAT          = 1.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
+K_LAT          = 0.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
 K_YAW          = 0.8    # yaw P-gain from normalized pixel error
 
 
@@ -118,7 +118,7 @@ K_D_TURN_DEG       = 0.0002           # D-gain for turn_yaw: damps using IMU yaw
 #      live IMU PD for heading — no April tag used during this leg.
 #   4. Repeat until the tag is within ZVU_TRUST_DIST_M, then track it live.
 ZVU_TRUST_DIST_M = 1.75    # switch to live tag tracking within this range [m]
-ZVU_INTERVAL_S   = 1.5    # seconds to dead-reckon between ZVU tag checks  ← primary tuning knob
+ZVU_INTERVAL_S   = 2.5    # seconds to dead-reckon between ZVU tag checks  ← primary tuning knob
 ZVU_SETTLE_S     = 0.35   # seconds to hold still before sampling the tag at a ZVU stop
 ZVU_TIMEOUT_S    = 2.0    # if tag still absent after settle+timeout, resume on last heading
 K_TURN_PRECISE     = 0.0005
@@ -144,7 +144,7 @@ MISSIONS = {
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
-            "zvu_trust_dist": 10.0,
+            "zvu_trust_dist": 1.75,
         },
         # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
         {
@@ -152,7 +152,7 @@ MISSIONS = {
             "tag": 6,
             "stop_dist": 1.34,
             "lat_off": 0.0,
-            "zvu_trust_dist": 10.0,
+            # "zvu_trust_dist": 10.0,
         },
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
         {
