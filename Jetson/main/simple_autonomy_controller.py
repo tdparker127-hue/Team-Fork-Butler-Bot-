@@ -606,6 +606,7 @@ def main() -> None:
                     _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
                     # PD controller: P on heading error, D damps via live yaw rate
                     _pd_out = K_TURN_DEG * _err_deg - K_D_TURN_DEG * _yaw_rate_dps
+                    print(f"\r[YAW] _pd_out={_pd_out:.3f} err={_err_deg:.2f}° imu_yaw={_imu_yaw:.2f}° yaw_rate={_yaw_rate_dps:.2f}°/s    ", end="", flush=True)
                     seq_drive_yaw = max(-1., min(1., _pd_out))
                     _in_tol = abs(_err_deg) < step.get("tol_deg", SEQ_YAW_TOL_DEG)
                     if _in_tol:
