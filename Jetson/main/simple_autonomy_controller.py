@@ -238,9 +238,11 @@ MISSIONS = {
             "zvu_trust_dist": 2.0,
         },
         {
-            "type": "drive_tag",
+            "type": "drive_arm",
             "tag": 5,
             "stop_dist": 1.44,
+            "lift": 3.5,
+            "grip": 0.0,
             "lat_off": 0.0,
         },
         {"type": "set_arm", "lift": 2.375, "grip": 1.85},
