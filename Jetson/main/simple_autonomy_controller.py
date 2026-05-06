@@ -91,8 +91,8 @@ WIN_NAME   = "Autonomy Controller  (q / Esc = quit)"
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID highlighted in the camera overlay
 K_FWD          = 2.2    # forward P-gain  (normalized speed / m error)
-K_LAT          = 0.3    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
-K_YAW          = 0.5    # yaw P-gain from normalized pixel error
+K_LAT          = 0.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
+K_YAW          = 0.7    # yaw P-gain from normalized pixel error
 
 
 # ─── Sequence runner constants ─────────────────────────────────────────────────
