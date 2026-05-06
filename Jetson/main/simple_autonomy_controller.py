@@ -249,14 +249,14 @@ MISSIONS = {
         {
             "type": "drive_tag",
             "tag": 5,
-            "stop_dist": 1.04,
+            "stop_dist": 0.98,
             "lat_off": 0.0,
         },
-        {"type": "set_arm", "lift": 2.55, "grip": 1.85},
+        {"type": "set_arm", "lift": 2.375, "grip": 1.85},
         {
             "type": "drive_tag",
             "tag": 5,
-            "stop_dist": 1.54,
+            "stop_dist": 1.75,
             "lat_off": 0.0,
         },
     ],
