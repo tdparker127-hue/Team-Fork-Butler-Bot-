@@ -13,8 +13,8 @@ static MotorDriver motorGrip(GRIP_DIR_PIN, GRIP_PWM_PIN, 1);
 static EncoderVelocity encoderLift(LIFT_ENC_A_PIN, LIFT_ENC_B_PIN, CPR_312_RPM, 0.2);
 static EncoderVelocity encoderGrip(GRIP_ENC_A_PIN, GRIP_ENC_B_PIN, CPR_312_RPM, 0.2);
 
-static LeadLagFilter filterLift(ARM_ALPHA, ARM_TD, ARM_TI);
-static LeadLagFilter filterGrip(ARM_ALPHA, ARM_TD, ARM_TI);
+static LeadLagFilter filterLift(ARM_LIFT_ALPHA, ARM_LIFT_TD, ARM_LIFT_TI);
+static LeadLagFilter filterGrip(ARM_GRIP_ALPHA, ARM_GRIP_TD, ARM_GRIP_TI);
 
 // ---- Setpoints commanded by Jetson (absolute positions in radians) ----
 static double liftSetpoint = 0.0;
@@ -59,13 +59,13 @@ void updateArmControl() {
 
     double errorLift = liftSetpoint - posLift;
     //motorLift.drive(ARM_KP*errorLift); //DEBUG
-    double effortLift = ARM_KP * filterLift.calculate(errorLift);
+    double effortLift = ARM_LIFT_KP * filterLift.calculate(errorLift);
     motorLift.drive(effortLift);
 
     double posGrip =   getOutlierRejectedEncoderPos(encoderGrip, prevPosGrip);  
     double errorGrip = gripSetpoint - posGrip;
-    //motorLift.drive(ARM_KP*errorLift); //DEBUG
-    effortGrip = ARM_KP * filterGrip.calculate(errorGrip);
+    //motorLift.drive(ARM_LIFT_KP*errorLift); //DEBUG
+    effortGrip = ARM_GRIP_KP * filterGrip.calculate(errorGrip);
     motorGrip.drive(effortGrip);
 
     prevPosLift = posLift;

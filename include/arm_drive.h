@@ -1,11 +1,17 @@
 #ifndef ARM_DRIVE_H
 #define ARM_DRIVE_H
 #include "EncoderVelocity.h"
-// ---- LeadLagFilter tuning (from Gripper_control_test.cpp baseline) ----
-#define ARM_KP     0.936
-#define ARM_ALPHA  10.0
-#define ARM_TD     0.0021
-#define ARM_TI     0.0183
+// ---- LeadLagFilter tuning — lift axis ----
+#define ARM_LIFT_KP     3.0
+#define ARM_LIFT_ALPHA  20.0
+#define ARM_LIFT_TD     0.0021
+#define ARM_LIFT_TI     0.0183
+
+// ---- LeadLagFilter tuning — grip axis ----
+#define ARM_GRIP_KP     0.936
+#define ARM_GRIP_ALPHA  10.0
+#define ARM_GRIP_TD     0.0021
+#define ARM_GRIP_TI     0.0183
 
 // ---- Incremental rate integration ----
 // Rate sent from Jetson (rad/s). Each loop the ESP integrates: setpoint += rate * dt

@@ -140,7 +140,7 @@ MISSIONS = {
         {
             "type": "drive_arm",
             "tag": 6,
-            "stop_dist": 1.7,
+            "stop_dist": 1.73,
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
@@ -154,14 +154,14 @@ MISSIONS = {
             "lat_off": 0.0,
             # "zvu_trust_dist": 10.0,
         },
-        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {"type": "set_arm", "lift": 2.93, "grip": 1.85},
         {
             "type": "drive_tag",
             "tag": 6,
             "stop_dist": 0.72,
             "lat_off": 0.0,
         },  # limit 0.62
-        {"type": "set_arm", "lift": 3.0, "grip": 0.38},
+        {"type": "set_arm", "lift": 2.93, "grip": 0.38},
         {
             "type": "drive_arm",
             "tag": 6,
@@ -176,21 +176,21 @@ MISSIONS = {
         {
             "type": "drive_arm",
             "tag": 6,
-            "stop_dist": 1.7,
+            "stop_dist": 1.73,
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
         },
         # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
         {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0},
-        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {"type": "set_arm", "lift": 2.93, "grip": 1.85},
         {
             "type": "drive_tag",
             "tag": 6,
             "stop_dist": 0.72,
             "lat_off": 0.0,
         },  # limit 0.62
-        {"type": "set_arm", "lift": 3.0, "grip": 0.38},
+        {"type": "set_arm", "lift": 2.93, "grip": 0.38},
         {
             "type": "drive_arm",
             "tag": 6,
@@ -646,8 +646,8 @@ def main() -> None:
             btn_a = bool(joystick.get_button(BTN_AUTO))
             btn_b = bool(joystick.get_button(BTN_MANUAL))
             btn_x = bool(joystick.get_button(BTN_SEQ))         if joystick.get_numbuttons() > BTN_SEQ         else False
-            btn_y = bool(joystick.get_button(BTN_SPEED_BOOST)) if joystick.get_numbuttons() > BTN_SPEED_BOOST else False
-            hat   = joystick.get_hat(0) if joystick.get_numhats() > 0 else (0, 0)
+            btn_y  = bool(joystick.get_button(BTN_SPEED_BOOST)) if joystick.get_numbuttons() > BTN_SPEED_BOOST else False
+            hat    = joystick.get_hat(0) if joystick.get_numhats() > 0 else (0, 0)
 
             _mission_keys = list(MISSIONS.keys())
 
@@ -1103,6 +1103,16 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if key in (ord('q'), 27):
                 break
+            elif key == ord('a'):   # print current AprilTag readings
+                with _cam_lock:
+                    _snap = list(_cam_detections)
+                if _snap:
+                    print(f"\n[TAGS] {len(_snap)} tag(s) detected:")
+                    for d in _snap:
+                        t = d.pose_t.flatten()
+                        print(f"  tag_id={d.tag_id}  x={t[0]:.3f}m  y={t[1]:.3f}m  z={t[2]:.3f}m  margin={d.decision_margin:.1f}")
+                else:
+                    print("\n[TAGS] No tags detected in current frame.")
             elif key == ord('p'):
                 person_detect_enabled = not person_detect_enabled
                 state_str = "ON" if person_detect_enabled else "OFF"
