@@ -107,21 +107,20 @@ SEQ_YAW_HOLD_S     = 0.3             # hold within yaw tolerance before advancin
 K_TURN_DEG         = 0.1           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
 K_D_TURN_DEG       = 0.0002           # D-gain for turn_yaw: damps using IMU yawRate [1/(deg/s)]
 
-# ── ZVU (zero-velocity update) odometry assist ─────────────────────────────────
-# April tag pose is noisy at long range because small pixel errors map to large
-# depth errors. Rather than steering on that jitter, we:
-#   1. Stop briefly (ZVU_SETTLE_S) so vibrations die — this is the "zero velocity
-#      update": pose noise drops dramatically when the platform is stationary.
-#   2. Sample the tag, freeze the resulting drive direction as (lx, ly, yaw).
-#   3. Drive dead-reckoning on wheel encoders for ZVU_INTERVAL_M meters.
+# ── ZVU (zero-velocity update) IMU dead-reckoning assist ──────────────────────
+# April tag pose is noisy at long range. Instead of steering on that jitter:
+#   1. Stop briefly (ZVU_SETTLE_S) so vibrations die — the "zero velocity update":
+#      pose noise drops dramatically when the platform is stationary.
+#   2. Sample the tag. Freeze the drive direction (lx, ly) and capture the current
+#      IMU heading as the reference to hold during dead-reckoning.
+#   3. Drive for ZVU_INTERVAL_S seco
+#  nds using frozen (lx, ly) for translation and
+#      live IMU PD for heading — no April tag used during this leg.
 #   4. Repeat until the tag is within ZVU_TRUST_DIST_M, then track it live.
-ZVU_TRUST_DIST_M = 1.5    # switch to live tag tracking within this range [m]
-ZVU_INTERVAL_M   = 0.25    # encoder distance between ZVU stops [m]  ← primary tuning knob
-ZVU_SETTLE_S     = 0.35   # seconds to hold still before sampling the tag
+ZVU_TRUST_DIST_M = 1.75    # switch to live tag tracking within this range [m]
+ZVU_INTERVAL_S   = 1.5    # seconds to dead-reckon between ZVU tag checks  ← primary tuning knob
+ZVU_SETTLE_S     = 0.35   # seconds to hold still before sampling the tag at a ZVU stop
 ZVU_TIMEOUT_S    = 2.0    # if tag still absent after settle+timeout, resume on last heading
-# ENC_M_PER_COUNT converts raw encoder units to meters. Calibrate by driving
-# a known distance and computing: meters_driven / avg_encoder_delta_across_wheels.
-ENC_M_PER_COUNT  = 0.001  # MUST be calibrated — placeholder value [m / encoder unit]
 K_TURN_PRECISE     = 0.0005
 #   40 deg error → 1.0 (full speed)
 
@@ -193,7 +192,7 @@ MISSIONS = {
             "lift": 3.6,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_arm", "tag": 7, "stop_dist": 1.0, "lat_off": 0.3, "lift": 1.0, "zvu_interval_m": 0.15, "zvu_trust_dist_m": 2.0},
+        {"type": "drive_arm", "tag": 7, "stop_dist": 1.0, "lat_off":-0.3, "lift": 1.0, "zvu_interval": 0.15, "zvu_trust_dist": 2.0},
         #{"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
         {"type": "turn_yaw", "yaw_deg": -90.0, "tol_deg": 2.0, "hold_s": 0.5},
         {"type": "drive_arm", "lift":3.5},
@@ -359,20 +358,6 @@ def get_enc() -> dict:
     with _enc_lock:
         return dict(_enc_data)
 
-
-def _enc_distance(snap: dict, current: dict) -> float:
-    """Meters of travel since the encoder snapshot `snap` was taken.
-
-    Averages the absolute change across all four wheels. Using abs() makes
-    this direction-agnostic — left and right wheels spin opposite ways for
-    a given forward motion, and the sign convention can vary by firmware.
-    Returns 0.0 if snap is empty (not yet initialized).
-    """
-    if not snap:
-        return 0.0
-    avg_counts = sum(abs(current.get(w, 0.0) - snap.get(w, 0.0))
-                     for w in ("fl", "fr", "bl", "br")) / 4.0
-    return avg_counts * ENC_M_PER_COUNT
 
 
 # -- Drive / arm serial handles exposed for external callers ------------------
@@ -587,15 +572,17 @@ def main() -> None:
     # ── ZVU state — resets on every new drive_tag / drive_arm step ────────────
     # _seq_step_prev: remembers which step index was active last iteration so we
     #                 can detect the moment seq_idx advances to a new step.
-    _seq_step_prev = -1
+    _seq_step_prev   = -1
     # Phase starts nominally as "tag_trust" but is immediately overwritten on the
     # first step (because _seq_step_prev=-1 != seq_idx) with "zvu_stop".
-    _zvu_phase     = "tag_trust"  # "tag_trust" | "zvu_stop" | "dead_reckon"
-    _zvu_settle_t  = 0.0          # time.monotonic() when robot stopped for ZVU
-    _zvu_enc_snap  = {}           # encoder snapshot taken at start of dead-reckon leg
-    _zvu_drive_lx  = 0.0          # lateral  drive command frozen from last ZVU fix
-    _zvu_drive_ly  = 0.0          # forward  drive command frozen from last ZVU fix
-    _zvu_drive_yaw = 0.0          # yaw      drive command frozen from last ZVU fix
+    _zvu_phase       = "tag_trust"  # "tag_trust" | "zvu_stop" | "dead_reckon"
+    _zvu_settle_t    = 0.0          # time.monotonic() when robot stopped for ZVU
+    _zvu_leg_start   = 0.0          # time.monotonic() when current dead-reckon leg began
+    _zvu_drive_lx    = 0.0          # lateral command frozen from last ZVU fix
+    _zvu_drive_ly    = 0.0          # forward command frozen from last ZVU fix
+    # _zvu_heading_deg: the IMU yaw captured at the last ZVU fix. The dead-reckon
+    # leg runs live IMU PD to hold this heading — no pixel centering, no encoders.
+    _zvu_heading_deg = 0.0
     _mission_keys  = list(MISSIONS.keys())
     sel_mission    = 0                            # highlighted mission in sidebar
     _start_steps   = [0] * len(_mission_keys)     # 0-indexed start step per mission
@@ -725,17 +712,15 @@ def main() -> None:
                 # ── ZVU step-transition reset ─────────────────────────────────
                 # Fires once each time seq_idx advances to a new step.
                 # We always enter the new step in "zvu_stop" so the robot
-                # pauses briefly and gets a fresh tag fix before it starts
-                # moving. This prevents the robot from charging off on stale
-                # data left over from the previous step.
+                # pauses briefly and gets a fresh tag fix before moving.
                 if seq_idx != _seq_step_prev:
-                    _seq_step_prev = seq_idx
-                    _zvu_phase     = "zvu_stop"   # stop first, read tag, then decide
-                    _zvu_settle_t  = now           # start the settle timer immediately
-                    _zvu_enc_snap  = {}            # clear odometer
-                    _zvu_drive_lx  = 0.0           # no frozen heading yet
-                    _zvu_drive_ly  = 0.0
-                    _zvu_drive_yaw = 0.0
+                    _seq_step_prev   = seq_idx
+                    _zvu_phase       = "zvu_stop"  # stop first, read tag, then decide
+                    _zvu_settle_t    = now          # start the settle timer immediately
+                    _zvu_leg_start   = 0.0          # no active dead-reckon leg yet
+                    _zvu_drive_lx    = 0.0          # no frozen translation yet
+                    _zvu_drive_ly    = 0.0
+                    _zvu_heading_deg = 0.0          # no frozen heading yet
 
                 # Arm slewing (set_arm and drive_arm) -- fixed rate for safety
                 if stype in ("set_arm", "drive_arm"):
@@ -772,7 +757,7 @@ def main() -> None:
                     _step_yaw_deg = step.get("yaw_deg", None)
                     _step_yaw_tol = step.get("tol_deg", SEQ_YAW_TOL_DEG)
                     _trust_dist   = step.get("zvu_trust_dist", ZVU_TRUST_DIST_M)
-                    _zvu_interval = step.get("zvu_interval",   ZVU_INTERVAL_M)
+                    _zvu_interval = step.get("zvu_interval",   ZVU_INTERVAL_S)
 
                     # --- Automatic promotion to tag_trust --------------------
                     # If the tag is visible and within reliable range, skip all
@@ -815,21 +800,22 @@ def main() -> None:
 
                     # ── Phase: zvu_stop ───────────────────────────────────────
                     # Robot is stationary waiting for vibrations to decay.
-                    # We only read the tag after ZVU_SETTLE_S seconds have
-                    # elapsed — that's the "zero velocity" moment when pose
-                    # noise is lowest. This gives us a clean directional fix
-                    # before we commit to a dead-reckoning leg.
+                    # We only read the tag after ZVU_SETTLE_S seconds — that's
+                    # the "zero velocity" moment when pose noise is lowest.
                     elif _zvu_phase == "zvu_stop":
                         seq_drive_lx = seq_drive_ly = 0.0
 
-                        # Keep heading tight with IMU even while stopped, so we
-                        # don't drift and invalidate the direction fix we're about
-                        # to take. If no explicit yaw, just command zero.
-                        if _step_yaw_deg is not None:
+                        # Keep heading tight with IMU while stopped. If we have a
+                        # previously frozen heading use it; otherwise hold zero.
+                        # This prevents yaw drift from corrupting the fix we're
+                        # about to take.
+                        _hold_yaw = _step_yaw_deg if _step_yaw_deg is not None else (
+                            _zvu_heading_deg if _zvu_drive_ly != 0.0 else None)
+                        if _hold_yaw is not None:
                             _imu_s      = get_imu("drive")
                             _imu_yaw_s  = ((- math.degrees(_imu_s.get("yaw", 0.0)) - _yaw_offset_deg + 180) % 360) - 180
                             _yaw_rate_s = -math.degrees(_imu_s.get("yawRate", 0.0))
-                            _yaw_err_s  = ((_step_yaw_deg - _imu_yaw_s + 180) % 360) - 180
+                            _yaw_err_s  = ((_hold_yaw - _imu_yaw_s + 180) % 360) - 180
                             seq_drive_yaw = max(-1., min(1.,
                                 K_TURN_DEG * _yaw_err_s - K_D_TURN_DEG * _yaw_rate_s))
                         else:
@@ -838,68 +824,66 @@ def main() -> None:
                         _elapsed_stop = now - _zvu_settle_t
                         if _elapsed_stop >= ZVU_SETTLE_S:
                             if _t_pos is not None:
-                                # Good stationary fix obtained. Compute the drive
-                                # direction and freeze it for the next dead-reckon leg.
+                                # Good stationary fix: compute translation commands
+                                # and freeze them for the upcoming dead-reckon leg.
                                 _ef = _t_pos[1] - step.get("stop_dist", 0.5)
                                 _el = _t_pix - step.get("lat_off", 0.0)
-                                _zvu_drive_lx  = max(-1., min(1., K_LAT * _el))
-                                _zvu_drive_ly  = max(-1., min(1., K_FWD * _ef))
-                                # Freeze the pixel-centering yaw command too so the
-                                # robot maintains the same crab angle while dead-reckoning.
-                                _zvu_drive_yaw = (max(-1., min(1., K_YAW * _el))
-                                                  if _step_yaw_deg is None else 0.0)
-                                print(f"\r[ZVU] fix  dist={_t_pos[1]:.2f}m  ly={_zvu_drive_ly:.3f}  lx={_zvu_drive_lx:.3f}   ",
+                                _zvu_drive_lx = max(-1., min(1., K_LAT * _el))
+                                _zvu_drive_ly = max(-1., min(1., K_FWD * _ef))
+                                # Capture current IMU heading as the reference to
+                                # maintain during dead-reckoning. This is the core of
+                                # the IMU-based ZVU: we know the exact heading at the
+                                # moment of the stationary fix, so we can hold it
+                                # precisely with IMU PD — no encoders, no pixel jitter.
+                                _imu_fix         = get_imu("drive")
+                                _zvu_heading_deg = ((- math.degrees(_imu_fix.get("yaw", 0.0)) - _yaw_offset_deg + 180) % 360) - 180
+                                print(f"\r[ZVU] fix  dist={_t_pos[1]:.2f}m  hdg={_zvu_heading_deg:.1f}°  ly={_zvu_drive_ly:.3f}  lx={_zvu_drive_lx:.3f}   ",
                                       end="", flush=True)
-                                # Decide whether to start a dead-reckon leg or jump
-                                # straight to live tag tracking.
                                 if _t_pos[1] <= _trust_dist:
                                     _zvu_phase = "tag_trust"
                                 else:
-                                    _zvu_phase    = "dead_reckon"
-                                    _zvu_enc_snap = get_enc()   # zero the odometer here
+                                    _zvu_phase     = "dead_reckon"
+                                    _zvu_leg_start = now   # start the timed leg
                             elif _elapsed_stop >= ZVU_SETTLE_S + ZVU_TIMEOUT_S:
-                                # Tag never appeared within the timeout window.
-                                # If we have a previously frozen heading, resume on it.
-                                # If not (first step, no fix ever), keep waiting.
+                                # Tag never appeared. If we have a saved heading,
+                                # resume on it; otherwise keep waiting.
                                 if _zvu_drive_ly != 0.0:
                                     print(f"\r[ZVU] timeout — resuming dead-reckon           ",
                                           flush=True)
-                                    _zvu_phase    = "dead_reckon"
-                                    _zvu_enc_snap = get_enc()
+                                    _zvu_phase     = "dead_reckon"
+                                    _zvu_leg_start = now
 
                         _in_tol = False   # never declare arrival while stopped for ZVU
 
                     # ── Phase: dead_reckon ────────────────────────────────────
-                    # Drive on the direction frozen at the last ZVU stop.
-                    # Wheel encoders track how far we've traveled; when the
-                    # interval is up we stop again for another fix. This loop
-                    # continues until we're close enough for tag_trust.
+                    # Drive on the translation commands frozen at the last fix.
+                    # Heading is held by live IMU PD on _zvu_heading_deg — the
+                    # yaw captured at the stationary fix moment. No April tag or
+                    # encoder is used here; this is pure IMU dead-reckoning.
+                    # After ZVU_INTERVAL_S seconds, stop for another tag fix.
                     elif _zvu_phase == "dead_reckon":
-                        _enc_traveled = _enc_distance(_zvu_enc_snap, get_enc())
+                        _elapsed_leg = now - _zvu_leg_start
 
-                        if _enc_traveled >= _zvu_interval:
-                            # Interval complete — pull over for another ZVU fix
-                            print(f"\r[ZVU] enc={_enc_traveled:.3f}m — stopping for fix     ",
+                        if _elapsed_leg >= _zvu_interval:
+                            # Timed interval complete — stop for a ZVU tag check
+                            print(f"\r[ZVU] {_elapsed_leg:.1f}s leg done — stopping for fix   ",
                                   flush=True)
                             _zvu_phase    = "zvu_stop"
                             _zvu_settle_t = now
                             seq_drive_lx = seq_drive_ly = seq_drive_yaw = 0.0
                         else:
-                            # Still mid-interval — replay the frozen commands
+                            # Mid-interval: frozen translation + live IMU heading.
+                            # If yaw_deg is set in the step, prefer that target;
+                            # otherwise use the heading captured at the last fix.
                             seq_drive_lx = _zvu_drive_lx
                             seq_drive_ly = _zvu_drive_ly
-                            # Yaw: if yaw_deg is explicit, keep the IMU PD running
-                            # so heading stays tight during the dead-reckon leg.
-                            # Otherwise replay the pixel-centering command from the fix.
-                            if _step_yaw_deg is not None:
-                                _imu_dr      = get_imu("drive")
-                                _imu_yaw_dr  = ((- math.degrees(_imu_dr.get("yaw", 0.0)) - _yaw_offset_deg + 180) % 360) - 180
-                                _yaw_rate_dr = -math.degrees(_imu_dr.get("yawRate", 0.0))
-                                _yaw_err_dr  = ((_step_yaw_deg - _imu_yaw_dr + 180) % 360) - 180
-                                seq_drive_yaw = max(-1., min(1.,
-                                    K_TURN_DEG * _yaw_err_dr - K_D_TURN_DEG * _yaw_rate_dr))
-                            else:
-                                seq_drive_yaw = _zvu_drive_yaw
+                            _heading_target = _step_yaw_deg if _step_yaw_deg is not None else _zvu_heading_deg
+                            _imu_dr      = get_imu("drive")
+                            _imu_yaw_dr  = ((- math.degrees(_imu_dr.get("yaw", 0.0)) - _yaw_offset_deg + 180) % 360) - 180
+                            _yaw_rate_dr = -math.degrees(_imu_dr.get("yawRate", 0.0))
+                            _yaw_err_dr  = ((_heading_target - _imu_yaw_dr + 180) % 360) - 180
+                            seq_drive_yaw = max(-1., min(1.,
+                                K_TURN_DEG * _yaw_err_dr - K_D_TURN_DEG * _yaw_rate_dr))
 
                         _in_tol = False   # never declare arrival during dead-reckoning
 
