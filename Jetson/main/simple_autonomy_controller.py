@@ -245,13 +245,14 @@ MISSIONS = {
             "grip": 0.0,
             "lat_off": 0.0,
         },
-        {"type": "set_arm", "lift": 2.55, "grip": 1.85},
+        {"type": "set_arm", "lift": 2.55, "grip": 0.0},
         {
             "type": "drive_tag",
             "tag": 5,
-            "stop_dist": 1.11,
+            "stop_dist": 1.04,
             "lat_off": 0.0,
         },
+        {"type": "set_arm", "lift": 2.55, "grip": 1.85},
         {
             "type": "drive_tag",
             "tag": 5,
