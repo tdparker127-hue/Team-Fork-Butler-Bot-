@@ -160,7 +160,6 @@ MISSIONS = {
             "tag": 6,
             "stop_dist": 0.72,
             "lat_off": 0.0,
-            "zvu_trust_dist": 10.0,
         },  # limit 0.62
         {"type": "set_arm", "lift": 3.0, "grip": 0.38},
         {
@@ -169,7 +168,6 @@ MISSIONS = {
             "stop_dist": 1.5,
             "lat_off": 0.0,
             "lift": 3.6,
-            "zvu_trust_dist": 10.0,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
         # {"type": "set_arm", "grip": 0.0},
@@ -189,7 +187,7 @@ MISSIONS = {
         {
             "type": "drive_tag",
             "tag": 6,
-            "stop_dist": 0.77,
+            "stop_dist": 0.72,
             "lat_off": 0.0,
         },  # limit 0.62
         {"type": "set_arm", "lift": 3.0, "grip": 0.38},
@@ -207,7 +205,6 @@ MISSIONS = {
             "stop_dist": 1.0,
             "lat_off": -0.3,
             "lift": 1.0,
-            "zvu_interval": 0.15,
             "zvu_trust_dist": 2.0,
         },
         # {"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
