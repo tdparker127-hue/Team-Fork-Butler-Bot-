@@ -23,6 +23,7 @@ OpenCV window:
 """
 
 import enum
+import json
 import math
 import threading
 import time
@@ -48,6 +49,9 @@ from Jetson.config import (
     PERSON_DETECT_EVERY_N,
 )
 from Jetson.vision.person_detection import PersonDetector, PersonThreat
+
+# -- Yaw offset persistence ---------------------------------------------------
+YAW_OFFSET_FILE = Path(__file__).parent.parent / "yaw_offset.json"
 
 # -- Serial ports --------------------------------------------------------------
 DRIVE_PORT = "/dev/ttyACM0"
@@ -311,6 +315,30 @@ def get_imu(label: str) -> dict:
         return dict(_imu_data[label])
 
 
+# -- Yaw offset helpers --------------------------------------------------------
+
+_yaw_offset_deg: float = 0.0   # degrees; subtracted from raw IMU yaw (CW-positive convention)
+
+
+def get_yaw_deg() -> float:
+    """Offset-corrected drive yaw in degrees, wrapped to (-180, 180]. CW=positive."""
+    raw = -math.degrees(get_imu("drive").get("yaw", 0.0))
+    return ((raw - _yaw_offset_deg + 180) % 360) - 180
+
+
+def _load_yaw_offset() -> float:
+    """Load saved yaw offset from disk; returns 0.0 if file missing or invalid."""
+    try:
+        return float(json.loads(YAW_OFFSET_FILE.read_text()).get("offset_deg", 0.0))
+    except Exception:
+        return 0.0
+
+
+def _save_yaw_offset(offset_deg: float) -> None:
+    """Persist yaw offset to disk."""
+    YAW_OFFSET_FILE.write_text(json.dumps({"offset_deg": round(offset_deg, 6)}))
+
+
 def get_enc() -> dict:
     with _enc_lock:
         return dict(_enc_data)
@@ -515,6 +543,8 @@ def main() -> None:
         else:
             print(f"[WARN] Calibration file not found: {CALIB_FILE}")
 
+    global _yaw_offset_deg
+
     # Control state
     loop_period = 1.0 / 50.0
     lift_sp = grip_sp = 0.0
@@ -663,7 +693,7 @@ def main() -> None:
                         # Yaw: IMU PD runs throughout if yaw_deg specified; else pixel centering
                         if _step_yaw_deg is not None:
                             _imu      = get_imu("drive")
-                            _imu_yaw  = -math.degrees(_imu.get("yaw", 0.0))
+                            _imu_yaw  = ((- math.degrees(_imu.get("yaw", 0.0)) - _yaw_offset_deg + 180) % 360) - 180
                             _yaw_rate = -math.degrees(_imu.get("yawRate", 0.0))
                             _yaw_err  = ((_step_yaw_deg - _imu_yaw + 180) % 360) - 180
                             seq_drive_yaw = max(-1., min(1.,
@@ -687,8 +717,8 @@ def main() -> None:
 
                 elif stype == "turn_yaw":
                     _imu = get_imu("drive")
-                    # Negate: IMU CCW=positive, drive command CW=positive
-                    _imu_yaw      = -math.degrees(_imu.get("yaw", 0.0))      # rad → deg, sign-flipped
+                    # Negate: IMU CCW=positive, drive command CW=positive; apply yaw offset
+                    _imu_yaw      = ((-math.degrees(_imu.get("yaw", 0.0)) - _yaw_offset_deg + 180) % 360) - 180
                     _yaw_rate_dps = -math.degrees(_imu.get("yawRate", 0.0))  # rad/s → deg/s, sign-flipped
                     _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
                     # PD controller: P on heading error, D damps via live yaw rate
@@ -837,16 +867,17 @@ def main() -> None:
                 cv2.putText(canvas,
                             f"arm [{arm_owns_str}][step {seq_idx}]  lift={lift_sp:.3f}  grip={grip_sp:.3f}",
                             (8, 78), font, 0.5, (255, 200, 100), 1, cv2.LINE_AA)
-                _cur_yaw = -math.degrees(get_imu("drive").get("yaw", 0.0))  # negated: CW=positive matches drive convention
+                _cur_yaw = get_yaw_deg()
+                _off_str = f"  [raw offset {_yaw_offset_deg:+.1f}°]" if abs(_yaw_offset_deg) > 0.05 else ""
                 cv2.putText(canvas,
-                            f"IMU yaw={_cur_yaw:+.1f} deg",
+                            f"IMU yaw={_cur_yaw:+.1f}°{_off_str}",
                             (8, 98), font, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
 
                 speed_str = "ARM: FAST (Y)" if fast_mode else "ARM: normal (Y)"
                 speed_col = (0, 80, 255) if fast_mode else (180, 180, 180)
                 cv2.putText(canvas, speed_str,
                             (FRAME_W - 160, FRAME_H - 10), font, 0.45, speed_col, 1, cv2.LINE_AA)
-                cv2.putText(canvas, "A=run  X=run  B=cancel  p=person det",
+                cv2.putText(canvas, "A=run  X=run  B=cancel  p=person  z=zero yaw  l=load yaw",
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 
             # Sidebar overlay (always drawn, even when camera unavailable)
@@ -860,6 +891,14 @@ def main() -> None:
                 person_detect_enabled = not person_detect_enabled
                 state_str = "ON" if person_detect_enabled else "OFF"
                 print(f"\n[PERSON] Detection {state_str}")
+            elif key == ord('z'):   # zero yaw at current position and save
+                _raw_yaw = -math.degrees(get_imu("drive").get("yaw", 0.0))
+                _yaw_offset_deg = _raw_yaw
+                _save_yaw_offset(_yaw_offset_deg)
+                print(f"\n[YAW] Zeroed. New offset = {_yaw_offset_deg:+.3f}°  (saved to {YAW_OFFSET_FILE})")
+            elif key == ord('l'):   # load saved yaw offset from disk
+                _yaw_offset_deg = _load_yaw_offset()
+                print(f"\n[YAW] Loaded offset = {_yaw_offset_deg:+.3f}°  from {YAW_OFFSET_FILE}")
             elif ord('0') <= key <= ord('9') and seq_idx < 0:
                 if len(_step_buf) < 2:
                     _step_buf += chr(key)
