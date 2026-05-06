@@ -209,7 +209,11 @@ MISSIONS = {
         },
         # {"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
         {"type": "turn_yaw", "yaw_deg": -90.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_arm", "lift": 3.5},
+        {
+            "type": "set_arm",
+            "lift": 3.5,
+            "tag": 8,
+        },
         {"type": "drive_tag", "tag": 8, "stop_dist": 0.77, "lat_off": 0.5},
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
         {
@@ -758,6 +762,13 @@ def main() -> None:
 
                 # Drive control (drive_tag and drive_arm)
                 if stype in ("drive_tag", "drive_arm"):
+                    if "tag" not in step:
+                        raise KeyError(
+                            f"Mission '{active_name}' step {seq_idx + 1} (type='{stype}') "
+                            f"is missing the required 'tag' key. "
+                            f"Every drive_tag and drive_arm step must include e.g. \"tag\": 6. "
+                            f"Step contents: {step}"
+                        )
                     # --- Detect the target tag in the current frame -----------
                     # pose_t is the camera-frame translation to the tag center.
                     # We rotate it into robot frame with R_cr / t_cr so that
