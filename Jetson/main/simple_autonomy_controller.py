@@ -100,9 +100,9 @@ SEQ_ARM_LIFT_SPEED = MAX_LIFT_SPEED   # max lift slew rate during sequence [rad/
 SEQ_ARM_GRIP_SPEED = MAX_GRIP_SPEED   # max grip slew rate during sequence [rad/s]
 SEQ_ARM_TOL_RAD    = 0.05             # arm arrival tolerance [rad]
 SEQ_DRIVE_HOLD_S   = 0.4             # hold within drive tolerance this long before advancing [s]
-SEQ_REACH_FWD_M    = 0.08            # forward error threshold [m]
-SEQ_REACH_PIX_X    = 0.06            # lateral pixel tolerance (normalized [-1,1])
-SEQ_YAW_TOL_DEG    = 3.0             # heading tolerance for turn_yaw steps [deg]
+SEQ_REACH_FWD_M    = 0.1            # forward error threshold [m]
+SEQ_REACH_PIX_X    = 0.08           # lateral pixel tolerance (normalized [-1,1])
+SEQ_YAW_TOL_DEG    = 4.0             # heading tolerance for turn_yaw steps [deg]
 SEQ_YAW_HOLD_S     = 0.3             # hold within yaw tolerance before advancing [s]
 K_TURN_DEG         = 0.1           # P-gain for turn_yaw:  yaw_cmd = clamp(K_TURN_DEG * err_deg)
 K_D_TURN_DEG       = 0.0002           # D-gain for turn_yaw: damps using IMU yawRate [1/(deg/s)]

@@ -2,8 +2,8 @@
 #define ARM_DRIVE_H
 #include "EncoderVelocity.h"
 // ---- LeadLagFilter tuning — lift axis ----
-#define ARM_LIFT_KP     3.0
-#define ARM_LIFT_ALPHA  20.0
+#define ARM_LIFT_KP     0.936
+#define ARM_LIFT_ALPHA  10.0
 #define ARM_LIFT_TD     0.0021
 #define ARM_LIFT_TI     0.0183
 
