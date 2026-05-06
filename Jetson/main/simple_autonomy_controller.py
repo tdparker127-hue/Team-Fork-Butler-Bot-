@@ -500,7 +500,7 @@ def _draw_sidebar(canvas: np.ndarray, sel_mission: int, seq_idx: int,
     # Hint strip at bottom
     hy = FRAME_H - 28
     cv2.line(canvas, (x0, hy - 8), (FRAME_W - 6, hy - 8), (60, 60, 60), 1)
-    cv2.putText(canvas, "1-99+Enter=step  dbl=run",
+    cv2.putText(canvas, "U/D=mission  L/R=step  dbl=run",
                 (x0 + 4, hy),      font, 0.35, (90, 90, 90), 1, cv2.LINE_AA)
     cv2.putText(canvas, "X=run  B=cancel",
                 (x0 + 4, hy + 14), font, 0.35, (90, 90, 90), 1, cv2.LINE_AA)
@@ -640,27 +640,50 @@ def main() -> None:
 
             _mission_keys = list(MISSIONS.keys())
 
-            # D-pad up/down navigates mission list (only when not running)
+            # D-pad navigation (only when not running a sequence)
             if seq_idx < 0:
-                if hat[1] == 1 and _hat_prev[1] != 1:
+                _n_steps_sel = len(MISSIONS[_mission_keys[sel_mission]])
+                if hat[1] == 1 and _hat_prev[1] != 1:        # up   -> prev mission
                     sel_mission = (sel_mission - 1) % len(_mission_keys)
-                elif hat[1] == -1 and _hat_prev[1] != -1:
+                    _step_buf = ""
+                elif hat[1] == -1 and _hat_prev[1] != -1:    # down -> next mission
                     sel_mission = (sel_mission + 1) % len(_mission_keys)
+                    _step_buf = ""
+                elif hat[0] == 1 and _hat_prev[0] != 1:      # right -> increment start step
+                    _step_buf = ""
+                    _start_steps[sel_mission] = min(_start_steps[sel_mission] + 1, _n_steps_sel - 1)
+                    print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step -> {_start_steps[sel_mission] + 1}")
+                elif hat[0] == -1 and _hat_prev[0] != -1:    # left  -> decrement start step
+                    _step_buf = ""
+                    _start_steps[sel_mission] = max(_start_steps[sel_mission] - 1, 0)
+                    print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step -> {_start_steps[sel_mission] + 1}")
 
             # Mode switching (edge-triggered)
+            # Helper: flush any pending step-buffer digit before launching
+            def _flush_step_buf():
+                if _step_buf:
+                    digit = int(_step_buf)
+                    n_steps = len(MISSIONS[_mission_keys[sel_mission]])
+                    _start_steps[sel_mission] = min(max(digit - 1, 0), n_steps - 1)
+                    print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step (auto-commit) -> {_start_steps[sel_mission] + 1}")
+                return _start_steps[sel_mission]
+
             if btn_b and not _b_prev:               # B always cancels
                 seq_idx   = -1
+                _step_buf = ""
                 print("\n[MODE] MANUAL")
             elif btn_x and not _x_prev:             # X starts selected mission
                 active_name    = _mission_keys[sel_mission]
                 active_seq     = MISSIONS[active_name]
-                seq_idx        = _start_steps[sel_mission]
+                seq_idx        = _flush_step_buf()
+                _step_buf      = ""
                 seq_hold_start = 0.0
                 print(f"\n[SEQ] '{active_name}' -- Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
             elif btn_a and not _a_prev and seq_idx < 0:   # A starts selected mission
                 active_name    = _mission_keys[sel_mission]
                 active_seq     = MISSIONS[active_name]
-                seq_idx        = _start_steps[sel_mission]
+                seq_idx        = _flush_step_buf()
+                _step_buf      = ""
                 seq_hold_start = 0.0
                 print(f"\n[SEQ] '{active_name}' -- Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
             if btn_y and not _y_prev:
@@ -679,7 +702,8 @@ def main() -> None:
                     sel_mission    = _mev_row
                     active_name    = _mission_keys[sel_mission]
                     active_seq     = MISSIONS[active_name]
-                    seq_idx        = _start_steps[sel_mission]
+                    seq_idx        = _flush_step_buf()
+                    _step_buf      = ""
                     seq_hold_start = 0.0
                     print(f"\n[SEQ] '{active_name}' -- Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
                 else:
@@ -1077,15 +1101,20 @@ def main() -> None:
                 _yaw_offset_deg = _load_yaw_offset()
                 print(f"\n[YAW] Loaded offset = {_yaw_offset_deg:+.3f}°  from {YAW_OFFSET_FILE}")
             elif ord('0') <= key <= ord('9') and seq_idx < 0:
-                if len(_step_buf) < 2:
-                    _step_buf += chr(key)
-            elif key == 13 and seq_idx < 0 and _step_buf:  # Enter commits
+                _step_buf += chr(key)
+                if len(_step_buf) == 2:   # auto-commit after 2 digits
+                    digit = int(_step_buf)
+                    n_steps = len(MISSIONS[_mission_keys[sel_mission]])
+                    _start_steps[sel_mission] = min(max(digit - 1, 0), n_steps - 1)
+                    print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step -> {_start_steps[sel_mission] + 1}")
+                    _step_buf = ""
+            elif key in (13, 10) and seq_idx < 0 and _step_buf:  # Enter commits 1-digit entry (CR or LF)
                 digit = int(_step_buf)
                 n_steps = len(MISSIONS[_mission_keys[sel_mission]])
                 _start_steps[sel_mission] = min(max(digit - 1, 0), n_steps - 1)
                 print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step -> {_start_steps[sel_mission] + 1}")
                 _step_buf = ""
-            elif key == 8 and seq_idx < 0:   # Backspace clears buffer or resets
+            elif key == 8 and seq_idx < 0:   # Backspace clears buffer or resets to step 1
                 if _step_buf:
                     _step_buf = _step_buf[:-1]
                 else:
