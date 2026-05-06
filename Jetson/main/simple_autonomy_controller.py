@@ -121,7 +121,7 @@ K_TURN_PRECISE     = 0.0005
 #   "turn_yaw"   yaw_deg, [tol_deg], [hold_s]
 #
 MISSIONS = {
-    "Full Pickup": [
+    "DishRack Pickup": [
         {
             "type": "drive_arm",
             "tag": 6,
@@ -148,6 +148,42 @@ MISSIONS = {
             "lift": 3.6,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
+        # {"type": "set_arm", "grip": 0.0},
+    ],
+    "DishRack Pickup&Dropoff": [
+        {
+            "type": "drive_arm",
+            "tag": 6,
+            "stop_dist": 1.7,
+            "lat_off": 0.0,
+            "lift": 3.5,
+            "grip": 1.85,
+        },
+        # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
+        {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0},
+        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {
+            "type": "drive_tag",
+            "tag": 6,
+            "stop_dist": 0.77,
+            "lat_off": 0.0,
+        },  # limit 0.62
+        {"type": "set_arm", "lift": 3.0, "grip": 0.38},
+        {
+            "type": "drive_arm",
+            "tag": 6,
+            "stop_dist": 1.5,
+            "lat_off": 0.0,
+            "lift": 3.6,
+        },
+        {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
+        {"type": "drive_arm", "tag": 7, "stop_dist": 1.7, "lat_off": 0.0, "lift": 1.0},
+        #{"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
+        {"type": "turn_yaw", "yaw_deg": 90.0, "tol_deg": 2.0, "hold_s": 0.5},
+        {"type": "drive_arm", "lift":3.5},
+        {"type": "drive_tag", "tag": 8, "stop_dist": 0.77, "lat_off": 0.5},
+        {"type": "set_arm", "lift": 3.0, "grip": 1.85},
+        {"type": "drive_arm", "tag": 8, "stop_dist": 1.5, "lat_off": 0.5,"lift": 1.0, "grip": 0.38},
         # {"type": "set_arm", "grip": 0.0},
     ],
     "Approach Only": [
