@@ -86,7 +86,7 @@ WIN_NAME   = "Autonomy Controller  (q / Esc = quit)"
 
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID highlighted in the camera overlay
-K_FWD          = 1.2    # forward P-gain  (normalized speed / m error)
+K_FWD          = 1.5    # forward P-gain  (normalized speed / m error)
 K_LAT          = 1.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
 K_YAW          = 0.8    # yaw P-gain from normalized pixel error
 
@@ -142,7 +142,6 @@ MISSIONS = {
             "stop_dist": 1.5,
             "lat_off": 0.0,
             "lift": 3.6,
-            "grip": 1.85,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
         # {"type": "set_arm", "grip": 0.0},
@@ -343,7 +342,7 @@ def _mouse_cb(event, x, y, flags, param) -> None:  # noqa: ANN001
 
 
 def _draw_sidebar(canvas: np.ndarray, sel_mission: int, seq_idx: int,
-                  active_name: str) -> None:
+                  active_name: str, start_steps: list, step_buf: str = "") -> None:
     """Draw the mission panel as a semi-transparent overlay on canvas."""
     font    = cv2.FONT_HERSHEY_SIMPLEX
     names   = list(MISSIONS.keys())
@@ -392,10 +391,21 @@ def _draw_sidebar(canvas: np.ndarray, sel_mission: int, seq_idx: int,
             sub, sc = f"{n} step{'s' if n != 1 else ''}", (70, 70, 70)
         cv2.putText(canvas, sub, (x0 + 24, y + 28), font, 0.37, sc, 1, cv2.LINE_AA)
 
+        # Start-step badge on the right side of the row
+        _ss = start_steps[i] + 1 if i < len(start_steps) else 1
+        if i == sel_mission and step_buf:
+            _badge = step_buf + "_"   # show live input with cursor
+            _ss_col = (0, 255, 200)
+        else:
+            _badge = str(_ss)
+            _ss_col = (0, 180, 255) if start_steps[i] > 0 else (55, 55, 55)
+        cv2.putText(canvas, f">{_badge}", (FRAME_W - 36, y + 15),
+                    font, 0.42, _ss_col, 1, cv2.LINE_AA)
+
     # Hint strip at bottom
     hy = FRAME_H - 28
     cv2.line(canvas, (x0, hy - 8), (FRAME_W - 6, hy - 8), (60, 60, 60), 1)
-    cv2.putText(canvas, "click=select  dbl=run",
+    cv2.putText(canvas, "1-99+Enter=step  dbl=run",
                 (x0 + 4, hy),      font, 0.35, (90, 90, 90), 1, cv2.LINE_AA)
     cv2.putText(canvas, "X=run  B=cancel",
                 (x0 + 4, hy + 14), font, 0.35, (90, 90, 90), 1, cv2.LINE_AA)
@@ -477,6 +487,8 @@ def main() -> None:
     seq_hold_start = 0.0     # monotonic time when we entered the tolerance zone
     _mission_keys  = list(MISSIONS.keys())
     sel_mission    = 0                            # highlighted mission in sidebar
+    _start_steps   = [0] * len(_mission_keys)     # 0-indexed start step per mission
+    _step_buf      = ""                           # digit buffer for step entry
     active_name    = _mission_keys[0]             # name of running/last mission
     active_seq     = MISSIONS[active_name]        # step list currently running
     _a_prev = _b_prev = _x_prev = _y_prev = False
@@ -531,15 +543,15 @@ def main() -> None:
             elif btn_x and not _x_prev:             # X starts selected mission
                 active_name    = _mission_keys[sel_mission]
                 active_seq     = MISSIONS[active_name]
-                seq_idx        = 0
+                seq_idx        = _start_steps[sel_mission]
                 seq_hold_start = 0.0
-                print(f"\n[SEQ] '{active_name}' -- Step 1/{len(active_seq)}: {active_seq[0]['type']}")
+                print(f"\n[SEQ] '{active_name}' -- Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
             elif btn_a and not _a_prev and seq_idx < 0:   # A starts selected mission
                 active_name    = _mission_keys[sel_mission]
                 active_seq     = MISSIONS[active_name]
-                seq_idx        = 0
+                seq_idx        = _start_steps[sel_mission]
                 seq_hold_start = 0.0
-                print(f"\n[SEQ] '{active_name}' -- Step 1/{len(active_seq)}: {active_seq[0]['type']}")
+                print(f"\n[SEQ] '{active_name}' -- Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
             if btn_y and not _y_prev:
                 fast_mode = not fast_mode
                 print(f"\n[SPEED] Arm: {'FAST' if fast_mode else 'NORMAL'}")
@@ -556,9 +568,9 @@ def main() -> None:
                     sel_mission    = _mev_row
                     active_name    = _mission_keys[sel_mission]
                     active_seq     = MISSIONS[active_name]
-                    seq_idx        = 0
+                    seq_idx        = _start_steps[sel_mission]
                     seq_hold_start = 0.0
-                    print(f"\n[SEQ] '{active_name}' -- Step 1/{len(active_seq)}: {active_seq[0]['type']}")
+                    print(f"\n[SEQ] '{active_name}' -- Step {seq_idx + 1}/{len(active_seq)}: {active_seq[seq_idx]['type']}")
                 else:
                     sel_mission = _mev_row
 
@@ -801,7 +813,7 @@ def main() -> None:
                             (8, FRAME_H - 10), font, 0.45, (180, 180, 180), 1, cv2.LINE_AA)
 
             # Sidebar overlay (always drawn, even when camera unavailable)
-            _draw_sidebar(canvas, sel_mission, seq_idx, active_name)
+            _draw_sidebar(canvas, sel_mission, seq_idx, active_name, _start_steps, _step_buf)
 
             cv2.imshow(WIN_NAME, canvas)
             key = cv2.waitKey(1) & 0xFF
@@ -811,6 +823,21 @@ def main() -> None:
                 person_detect_enabled = not person_detect_enabled
                 state_str = "ON" if person_detect_enabled else "OFF"
                 print(f"\n[PERSON] Detection {state_str}")
+            elif ord('0') <= key <= ord('9') and seq_idx < 0:
+                if len(_step_buf) < 2:
+                    _step_buf += chr(key)
+            elif key == 13 and seq_idx < 0 and _step_buf:  # Enter commits
+                digit = int(_step_buf)
+                n_steps = len(MISSIONS[_mission_keys[sel_mission]])
+                _start_steps[sel_mission] = min(max(digit - 1, 0), n_steps - 1)
+                print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step -> {_start_steps[sel_mission] + 1}")
+                _step_buf = ""
+            elif key == 8 and seq_idx < 0:   # Backspace clears buffer or resets
+                if _step_buf:
+                    _step_buf = _step_buf[:-1]
+                else:
+                    _start_steps[sel_mission] = 0
+                    print(f"\n[SEQ] '{_mission_keys[sel_mission]}' start step -> 1")
 
             elapsed = time.monotonic() - t0
             sleep_for = loop_period - elapsed
