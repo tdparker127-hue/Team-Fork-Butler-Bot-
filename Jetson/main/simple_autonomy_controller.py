@@ -474,8 +474,7 @@ def main() -> None:
     _person_annotated     = None    # cached annotated frame from last detection
     print("[PERSON] Ready.")
 
-    cv2.namedWindow(WIN_NAME, cv2.WINDOW_NORMAL)
-    cv2.setWindowProperty(WIN_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.namedWindow(WIN_NAME)
     cv2.setMouseCallback(WIN_NAME, _mouse_cb)
 
     try:
@@ -769,6 +768,8 @@ def main() -> None:
 
             elapsed = time.monotonic() - t0
             sleep_for = loop_period - elapsed
+            if elapsed > loop_period * 1.5:   # warn when loop runs >50% over budget
+                print(f"\r[TIMING] loop={elapsed*1000:.1f}ms (budget={loop_period*1000:.0f}ms)    ", end="", flush=True)
             if sleep_for > 0:
                 time.sleep(sleep_for)
 
