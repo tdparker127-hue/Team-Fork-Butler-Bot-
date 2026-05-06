@@ -603,7 +603,7 @@ def main() -> None:
                     _imu = get_imu("drive")
                     _imu_yaw      = math.degrees(_imu.get("yaw", 0.0))      # rad → deg
                     _yaw_rate_dps = math.degrees(_imu.get("yawRate", 0.0))  # rad/s → deg/s
-                    _err_deg = ((step["yaw_deg"] - _imu_yaw + 180) % 360) - 180
+                    _err_deg = ((step["yaw_deg"] + _imu_yaw + 180) % 360) - 180
                     # PD controller: P on heading error, D damps via live yaw rate
                     _pd_out = K_TURN_DEG * _err_deg - K_D_TURN_DEG * _yaw_rate_dps
                     print(f"\r[YAW] _pd_out={_pd_out:.3f} err={_err_deg:.2f}° imu_yaw={_imu_yaw:.2f}° yaw_rate={_yaw_rate_dps:.2f}°/s    ", end="", flush=True)
