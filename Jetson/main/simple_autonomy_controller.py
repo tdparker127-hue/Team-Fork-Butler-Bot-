@@ -86,7 +86,7 @@ WIN_NAME   = "Autonomy Controller  (q / Esc = quit)"
 
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID highlighted in the camera overlay
-K_FWD          = 0.6    # forward P-gain  (normalized speed / m error)
+K_FWD          = 1.2    # forward P-gain  (normalized speed / m error)
 K_LAT          = 1.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
 K_YAW          = 0.8    # yaw P-gain from normalized pixel error
 
