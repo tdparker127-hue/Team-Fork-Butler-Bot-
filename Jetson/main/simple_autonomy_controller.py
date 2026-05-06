@@ -144,7 +144,7 @@ MISSIONS = {
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
-            "zvu_trust_dist": 2.0,
+            "zvu_trust_dist": 1.75,
         },
         # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
         {
@@ -176,7 +176,7 @@ MISSIONS = {
         {
             "type": "drive_arm",
             "tag": 6,
-            "stop_dist": 1.73,
+            "stop_dist": 1.7,
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
