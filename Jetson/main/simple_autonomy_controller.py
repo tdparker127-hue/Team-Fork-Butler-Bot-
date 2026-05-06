@@ -90,8 +90,8 @@ WIN_NAME   = "Autonomy Controller  (q / Esc = quit)"
 
 # -- Autonomous control --------------------------------------------------------
 TARGET_TAG_ID  = 6      # AprilTag ID highlighted in the camera overlay
-K_FWD          = 1.5    # forward P-gain  (normalized speed / m error)
-K_LAT          = 1.5    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
+K_FWD          = 1.2    # forward P-gain  (normalized speed / m error)
+K_LAT          = 1.2    # lateral P-gain  (normalized speed / normalized pixel error [-1,1])
 K_YAW          = 0.8    # yaw P-gain from normalized pixel error
 
 
@@ -135,7 +135,7 @@ K_TURN_PRECISE     = 0.0005
 #   "set_arm"    [lift], [grip]              (omit a key to leave unchanged)
 #   "drive_arm"  all drive_tag + set_arm params
 #   "turn_yaw"   yaw_deg, [tol_deg], [hold_s]
-#   "zvu_trust_d_ist":0 goes to 100% april tag trust 
+#   "zvu_trust_dist":0 goes to 100% april tag trust 
 MISSIONS = {
     "DishRack Pickup": [
         {
@@ -145,25 +145,26 @@ MISSIONS = {
             "lat_off": 0.0,
             "lift": 3.5,
             "grip": 1.85,
+            "zvu_trust_dist_m":0.0,
         },
         # {"type": "turn_yaw", "yaw_deg": 0.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0, "zvu_trust_dist_m":0.0},
+        {"type": "drive_tag", "tag": 6, "stop_dist": 1.34, "lat_off": 0.0, "zvu_trust_dist":0.0},
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
         {
             "type": "drive_tag",
             "tag": 6,
             "stop_dist": 0.77,
             "lat_off": 0.0,
-            "zvu_trust_dist_m":0.0,
+            "zvu_trust_dist":0.0,
         },  # limit 0.62
-        {"type": "set_arm", "lift": 3.0, "grip": 0.38, "zvu_trust_dist_m":0.0},
+        {"type": "set_arm", "lift": 3.0, "grip": 0.38, "zvu_trust_dist":0.0},
         {
             "type": "drive_arm",
             "tag": 6,
             "stop_dist": 1.5,
             "lat_off": 0.0,
             "lift": 3.6,
-            "zvu_trust_dist_m":0.0,
+            "zvu_trust_dist":0.0,
         },
         {"type": "turn_yaw", "yaw_deg": 180.0, "tol_deg": 2.0, "hold_s": 0.5},
         # {"type": "set_arm", "grip": 0.0},
@@ -207,10 +208,10 @@ MISSIONS = {
          "tol_deg": 3.0,},
         #{"type": "drive_tag", "tag": 7, "stop_dist": 1.34, "lat_off": 0.0},
         {"type": "turn_yaw", "yaw_deg": -90.0, "tol_deg": 2.0, "hold_s": 0.5},
-        {"type": "drive_arm", "lift":3.5},
-        {"type": "drive_tag", "tag": 8, "stop_dist": 0.77, "lat_off": 0.5},
+        {"type": "drive_arm", "lift":3.5, "zvu_trust_dist":0.0},
+        {"type": "drive_tag", "tag": 8, "stop_dist": 0.77, "lat_off": 0.5, "zvu_trust_dist":0.0},  # limit 0.62
         {"type": "set_arm", "lift": 3.0, "grip": 1.85},
-        {"type": "drive_arm", "tag": 8, "stop_dist": 1.5, "lat_off": 0.5,"lift": 1.0, "grip": 0.38},
+        {"type": "drive_arm", "tag": 8, "stop_dist": 1.5, "lat_off": 0.5,"lift": 1.0, "grip": 0.38, "zvu_trust_dist":0.0},
         # {"type": "set_arm", "grip": 0.0},
     ],
     "Approach Only": [
